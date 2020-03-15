@@ -1,7 +1,12 @@
 //C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\MSBuild\15.0\Bin\MSBuild.exe
 //.\MSBuild.exe /p:Configuration=Release /p:Platform=x64 "C:\Users\frank\Documents\Max 7\Library\max-sdk-7.3.3\source\audio\omnitest~\omnitest~.vcxproj"
 
+
+//cmake -G "MinGW Makefiles" ..
+//mingw32-make
+
 #include "c74_msp.h"
+#include "omni.h"
 
 using namespace c74::max;
 
@@ -12,27 +17,6 @@ static t_class* this_class = nullptr;
 //Should they be atomic?
 static double max_samplerate = 0.0;
 static long   max_bufsize    = 0;
-
-//Initialization functions. Wrapped in C since the Omni lib is exported with C named libraries
-extern "C"
-{
-	//Initialization function prototypes
-    typedef void*  alloc_func_t(size_t inSize);
-    typedef void*  realloc_func_t(void *inPtr, size_t inSize);
-    typedef void   free_func_t(void *inPtr);
-    typedef void   print_func_t(const char* formatString, ...);
-    typedef double get_samplerate_func_t();
-    typedef int    get_bufsize_func_t();
-
-    //Initialization function
-    extern  void  OmniInitGlobal(alloc_func_t* alloc_func, realloc_func_t* realloc_func, free_func_t* free_func, print_func_t* print_func, get_samplerate_func_t* get_samplerate_func, get_bufsize_func_t* get_bufsize_func);
-
-    //Omni module functions
-    extern void* OmniAllocObj();
-	extern void  OmniInitObj(void* obj, float** ins_SC, int bufsize_in, double samplerate_in);
-    extern void  OmniDestructor(void* obj_void);
-    extern void  OmniPerform(void* ugen_void, long buf_size, double** ins_SC, double** outs_SC);
-}
 
 //print
 void maxPrint(const char* formatString, ...)
@@ -49,24 +33,24 @@ double get_maxSamplerate()
 //bufsize
 int get_maxBufSize()
 {
-	return int(max_bufsize);
+	return (int)max_bufsize;
 }
 
 //Max struct
 typedef struct _omnitest {
 	t_pxobject w_obj;
 	
-	void* omni_obj;
-	bool  omni_obj_is_init;
+	void* omni_ugen;
+	bool  omni_ugen_is_init;
 
 } t_omnitest;
 
 //Template functions
-void *omnitest_new(t_symbol *s, long argc, t_atom *argv);
-void omnitest_free(t_omnitest *x);
-void omnitest_assist(t_omnitest* self, void* unused, t_assist_function io, long index, char* string_dest);
-void omnitest_perform64(t_omnitest* x, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam);
-void omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags);
+void* omnitest_new(t_symbol *s, long argc, t_atom *argv);
+void  omnitest_free(t_omnitest *x);
+void  omnitest_assist(t_omnitest* self, void* unused, t_assist_function io, long index, char* string_dest);
+void  omnitest_perform64(t_omnitest* x, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam);
+void  omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags);
 
 void ext_main(void *r)
 {
@@ -76,13 +60,13 @@ void ext_main(void *r)
 	class_addmethod(this_class, (method)omnitest_assist,    "assist",	A_CANT, 0);
 
 	//Init all function pointers
-	OmniInitGlobal(
-		(alloc_func_t*)malloc, 
-		(realloc_func_t*)realloc, 
-		(free_func_t*)free, 
-		(print_func_t*)maxPrint, 
-		(get_samplerate_func_t*)get_maxSamplerate,
-		(get_bufsize_func_t*)get_maxBufSize
+	Omni_InitGlobal(
+		(omni_alloc_func_t*)malloc, 
+		(omni_realloc_func_t*)realloc, 
+		(omni_free_func_t*)free, 
+		(omni_print_func_t*)maxPrint, 
+		(omni_get_samplerate_func_t*)get_maxSamplerate,
+		(omni_get_bufsize_func_t*)get_maxBufSize
 	);
 	
 	class_dspinit(this_class);
@@ -94,33 +78,33 @@ void *omnitest_new(t_symbol *s, long argc, t_atom *argv)
 {
 	t_omnitest *self = (t_omnitest *)object_alloc(this_class);
 
-	//Number of audio inlets
+	//Inlets
 	dsp_setup((t_pxobject *)self, 1);
 
-	//Allocate Omni object. Inputs can't be passed here, but arguments and attributes may be...
-	if(!self->omni_obj)
+	//Allocate omni_ugen. Inputs can't be passed here, but arguments and attributes may be...
+	if(!self->omni_ugen)
 	{
-		self->omni_obj = OmniAllocObj();
-		self->omni_obj_is_init = false;
+		self->omni_ugen = Omni_UGenAlloc();
+		self->omni_ugen_is_init = false;
 	}
 
-	//new outlet
-	outlet_new((t_object *)self, "signal");		
+	//Outlets
+	outlet_new((t_object *)self, "signal");			
 
 	return self;
 }
 
 void omnitest_free(t_omnitest *self)
 {
-	if(self->omni_obj)
-		OmniDestructor(self->omni_obj);
+	if(self->omni_ugen)
+		Omni_UGenFree(self->omni_ugen);
 
 	dsp_free((t_pxobject *)self);
 }
 
 void omnitest_assist(t_omnitest* self, void* unused, t_assist_function io, long index, char* string_dest)
 {
-	//INLETS
+	//Inlets assist
 	if (io == ASSIST_INLET) 
 	{
 		switch (index) 
@@ -131,7 +115,7 @@ void omnitest_assist(t_omnitest* self, void* unused, t_assist_function io, long 
 		}
 	}
 
-	//OUTLETS
+	//Outlets assist
 	else if (io == ASSIST_OUTLET)
 	{
 		switch (index) 
@@ -145,8 +129,8 @@ void omnitest_assist(t_omnitest* self, void* unused, t_assist_function io, long 
 
 void omnitest_perform64(t_omnitest* self, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam)
 {
-	if (self->omni_obj)
-		OmniPerform(self->omni_obj, sampleframes, ins, outs);
+	if (self->omni_ugen)
+		Omni_UGenPerform64(self->omni_ugen, ins, outs, (int)sampleframes);
 	else
 	{
 		for (int i = 0; i < numouts; i++)
@@ -160,30 +144,37 @@ void omnitest_perform64(t_omnitest* self, t_object* dsp64, double** ins, long nu
 void omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags) 
 {
 	post("Max samplerate: %f", samplerate);
-	post("Max vector size: %lu", maxvectorsize);
+	post("Max vector size: %d", (int)maxvectorsize);
 
 	//Special case, if there is a change in samplerate or bufsize, 
 	//and object has already been allocated and initialized, 
 	//get rid of previous object, allocate new and re-init.
-	if(((max_samplerate != samplerate) || max_bufsize != maxvectorsize) && self->omni_obj && self->omni_obj_is_init)
+	if(((max_samplerate != samplerate) || max_bufsize != maxvectorsize) && self->omni_ugen && self->omni_ugen_is_init)
 	{
-		//Re-initialize everything omni related
-		OmniDestructor(self->omni_obj);
-		self->omni_obj = OmniAllocObj();
-		OmniInitObj(self->omni_obj, nullptr, maxvectorsize, samplerate);
+		//Free, then re-alloc
+		Omni_UGenFree(self->omni_ugen);
+		self->omni_ugen = Omni_UGenAlloc();
+
+		//Change samplerate and bufsize HERE, so they are also available in omni init via the get_samplerate/get_bufsize templates
+		max_samplerate = samplerate;
+		max_bufsize    = maxvectorsize;
+
+		//re-init the ugen
+		Omni_UGenInit(self->omni_ugen, nullptr, (int)maxvectorsize, samplerate);
 	}
 
 	//Standard case, don't re-init object everytime dsp chain is recompiled, but just one time:
 	//Data and structs need only to be allocated once!
-	if(self->omni_obj && !(self->omni_obj_is_init))
+	if(self->omni_ugen && !(self->omni_ugen_is_init))
 	{
-		OmniInitObj(self->omni_obj, nullptr, maxvectorsize, samplerate);
-		self->omni_obj_is_init = true;
+		//Change samplerate and bufsize HERE, so they are also available in omni init via the get_samplerate/get_bufsize templates
+		max_samplerate = samplerate;
+		max_bufsize    = maxvectorsize;
+		
+		//init ugen
+		Omni_UGenInit(self->omni_ugen, nullptr, (int)maxvectorsize, samplerate);
+		self->omni_ugen_is_init = true;
 	}
-
-	//Change samplerate and bufsize (so they are available in omni via the get_samplerate/get_bufsize templates)
-	max_samplerate = samplerate;
-	max_bufsize    = maxvectorsize;
 
 	//Add dsp64 method
 	object_method_direct(void, (t_object*, t_object*, t_perfroutine64, long, void*),
