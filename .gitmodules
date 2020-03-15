@@ -1,0 +1,3 @@
+[submodule "omnimax_lang/omnimax_lang/deps/max-api"]
+	path = omnimax_lang/omnimax_lang/deps/max-api
+	url = https://github.com/Cycling74/max-api
