@@ -5,8 +5,14 @@ const
     NimblePkgVersion {.strdefine.} = ""
     omnimax_ver = NimblePkgVersion
 
+#Default to the omni nimble folder, which should have it installed if omni has been installed correctly
+const default_max_api_path = "~/.nimble/pkgs/omnimax-" & omnimax_ver & "/omnimaxpkg/deps/max-api"
+
 #Extension for static lib
 const static_lib_extension = ".a"
+
+#It's the same in MacOS and Windows
+const default_library_path = "~/Documents/Max 8/Library"
 
 proc printError(msg : string) : void =
     setForegroundColor(fgRed)
@@ -20,14 +26,9 @@ proc printDone(msg : string) : void =
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
-proc omnimax(omniFile : string, supernova : bool = false, architecture : string = "native", outDir : string = "", maxPath : string = "", removeBuildFiles : bool = true) : int =
+proc omnimax_single_file(omniFile : string, mc : bool = false, architecture : string = "native", outDir : string = default_library_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
 
-    let 
-        fullPathToFile = omniFile.normalizedPath().expandTilde().absolutePath()
-        
-        #This is the path to the original nim file to be used in shell.
-        #Using this one in nim command so that errors are shown on this one when CTRL+Click on terminal
-        #fullPathToOriginalOmniFileShell = fullPathToFile.replace(" ", "\\ ")
+    let fullPathToFile = omniFile.normalizedPath().expandTilde().absolutePath()
 
     #Check if file exists
     if not fullPathToFile.existsFile():
@@ -51,15 +52,25 @@ proc omnimax(omniFile : string, supernova : bool = false, architecture : string 
 
     return 0
 
-proc omnimax_cli(omniFiles : seq[string], supernova : bool = false, architecture : string = "native", outDir : string = "", maxPath : string = "", removeBuildFiles : bool = true) : int =
+proc omnimax(omniFiles : seq[string], mc : bool = false, architecture : string = "native", outDir : string = default_library_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
+    for omniFile in omniFiles:
+        if omnimax_single_file(omniFile, mc, architecture, outDir, maxPath, removeBuildFiles) > 0:
+            return 1
+    
     return 0
 
 #Dispatch the omnimax function as the CLI one
-dispatch(omnimax_cli, 
-    short={}, 
-    
-    help={ 
-      
-    }
+dispatch(omnimax, 
+    short={
+        "maxPath" : 'p',
+        "mc" : 'm'
+    }, 
 
+    help={ 
+        "mc" : "Build with mc support.",
+        "architecture" : "Build architecture.",
+        "outDir" : "Output directory. Defaults to Max's Library path.",
+        "maxPath" : "Path to the max-api folder. Defaults to the one in omnimax's dependencies.", 
+        "removeBuildFiles" : "Remove source files used for compilation from outDir."        
+    }
 )
