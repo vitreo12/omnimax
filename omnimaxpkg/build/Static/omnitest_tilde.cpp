@@ -104,22 +104,23 @@ void omnitest_free(t_omnitest *self)
 
 void omnitest_assist(t_omnitest* self, void* unused, t_assist_function io, long index, char* string_dest)
 {
-	//Inlets assist
 	if (io == ASSIST_INLET) 
 	{
 		switch (index) 
 		{
+			//Inlets assists
 			case 0:
 				strncpy(string_dest, "(signal/symbol) in1", ASSIST_STRING_MAXSIZE);
 				break;
 		}
 	}
 
-	//Outlets assist
+
 	else if (io == ASSIST_OUTLET)
 	{
 		switch (index) 
 		{
+			//Outlets assists
 			case 0:
 				strncpy(string_dest, "(signal) out1", ASSIST_STRING_MAXSIZE);
 				break;
@@ -143,8 +144,8 @@ void omnitest_perform64(t_omnitest* self, t_object* dsp64, double** ins, long nu
 
 void omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags) 
 {
-	post("Max samplerate: %f", samplerate);
-	post("Max vector size: %d", (int)maxvectorsize);
+	//post("Max samplerate: %f", samplerate);
+	//post("Max vector size: %d", (int)maxvectorsize);
 
 	//Special case, if there is a change in samplerate or bufsize, 
 	//and object has already been allocated and initialized, 
