@@ -245,7 +245,10 @@ void *omnitest_new(t_symbol *s, long argc, t_atom *argv)
 	}
 
 	//Outlets
-	outlet_new((t_object *)self, "signal");			
+	outlet_new((t_object *)self, "signal");				
+
+	//Necessary for no buffer aliasing!
+	self->w_obj.z_misc |= Z_NO_INPLACE;
 
 	return self;
 }
@@ -433,7 +436,7 @@ void omnitest_receive_message_any_inlet(t_omnitest* self, t_symbol* s, long argc
 
 void omnitest_perform64(t_omnitest* self, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam)
 {
-	if (self->omni_ugen_is_init)
+	if(self->omni_ugen_is_init)
 		Omni_UGenPerform64(self->omni_ugen, ins, outs, (int)sampleframes);
 	else
 	{
