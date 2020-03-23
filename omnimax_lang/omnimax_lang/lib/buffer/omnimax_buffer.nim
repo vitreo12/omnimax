@@ -15,7 +15,6 @@ proc get_frames_buffer_Max(buffer_obj : pointer)     : clong   {.importc, cdecl.
 proc get_samples_buffer_Max(buffer_obj : pointer)    : clong   {.importc, cdecl.}
 proc get_channels_buffer_Max(buffer_obj : pointer)   : clong   {.importc, cdecl.}
 proc get_samplerate_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.}
-
 #proc get_sampledur_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.}
 
 type
