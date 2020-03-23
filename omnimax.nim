@@ -16,13 +16,13 @@ const default_library_path = "~/Documents/Max 8/Library"
 
 proc printError(msg : string) : void =
     setForegroundColor(fgRed)
-    writeStyled("ERROR: ", {styleBright}) 
+    writeStyled("ERROR [omnimax]: ", {styleBright}) 
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
 proc printDone(msg : string) : void =
     setForegroundColor(fgGreen)
-    writeStyled("DONE: ", {styleBright}) 
+    writeStyled("DONE [omnimax]: ", {styleBright}) 
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
@@ -49,6 +49,64 @@ proc omnimax_single_file(omniFile : string, mc : bool = false, architecture : st
     if not(omniFileExt == ".omni") and not(omniFileExt == ".oi"):
         printError($fullPathToFile & " is not an omni file.")
         return 1
+
+    let expanded_max_path = maxPath.normalizedPath().expandTilde().absolutePath()
+
+    #Check maxPath
+    if not expanded_max_path.existsDir():
+        printError("maxPath: " & $expanded_max_path & " does not exist.")
+        return 1
+    
+    let expanded_out_dir = outDir.normalizedPath().expandTilde().absolutePath()
+
+    #Check outDir
+    if not expanded_out_dir.existsDir():
+        printError("outDir: " & $expanded_out_dir & " does not exist.")
+        return 1
+
+    #Full paths to the new file in omniFileName directory
+    let 
+        #New folder named with the name of the Omni file
+        fullPathToNewFolder = $omniFileDir & "/" & $omniFileName
+
+        #This is the Omni file copied to the new folder
+        fullPathToOmniFile   = $fullPathToNewFolder & "/" & $omniFileName & $omniFileExt
+
+        #These are the .cpp, .sc and cmake files in new folder
+        fullPathToCppFile   = $fullPathToNewFolder & "/" & $omniFileName & ".cpp"
+        fullPathToCMakeFile = $fullPathToNewFolder & "/" & "CMakeLists.txt"
+
+        #These are the paths to the generated static libraries
+        fullPathToStaticLib = $fullPathToNewFolder & "/lib" & $omniFileName & $static_lib_extension
+    
+    #Create directory in same folder as .omni file
+    removeDir(fullPathToNewFolder)
+    createDir(fullPathToNewFolder)
+
+    #Copy omniFile to folder
+    copyFile(fullPathToFile, fullPathToOmniFile)
+
+    # ================ #
+    # COMPILE NIM FILE #
+    # ================ #
+
+    #Compile nim file. Only pass the -d:omnicli and -d:tempDir flag here, so it generates the IO.txt file.
+    let omni_command = "omni \"" & $fullPathToFile & "\" -i:omnimax_lang -b:64 -u:false -l:static -d:writeIO -d:tempDir:\"" & $fullPathToNewFolder & "\" -o:\"" & $fullPathToNewFolder & "\""
+
+    #Windows requires powershell to figure out the .nimble path... go figure!
+    when not defined(Windows):
+        let failedOmniCompilation = execCmd(omni_command)
+    else:
+        let failedOmniCompilation = execShellCmd(omni_command)
+
+    #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
+    if failedOmniCompilation > 0:
+        printError("Unsuccessful compilation of " & $omniFileName & $omniFileExt & ".")
+        return 1
+    
+    #Also for mc
+    if mc:
+        discard
 
     return 0
 
