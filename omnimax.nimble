@@ -15,7 +15,7 @@ when defined(Windows):
     installDirs = @["omnimaxpkg"]
 
 #nimble bug: can't install JitterAPI.framework and all its symbolic links
-#gotta install just the folder containing all the files (Versions/A), and rebuild the links in the "after" hook
+#gotta install just the folder containing all the files (JitterAPI.framework/Versions/A), and rebuild the links in the "after" hook
 else:
     installDirs  = @[
         "omnimaxpkg/JIT", 
