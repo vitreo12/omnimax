@@ -10,8 +10,24 @@ requires "omni >= 0.1.0"
 #Ignore omnimax_lang
 skipDirs = @["omnimax_lang"]
 
-#Install build/deps
-installDirs  = @["omnimaxpkg/JIT", "omnimaxpkg/Static", "omnimaxpkg/deps/max-api/include", "omnimaxpkg/deps/max-api/script", "omnimaxpkg/deps/max-api/site"] 
+#Install omnimaxpkg
+when defined(Windows):
+    installDirs = @["omnimaxpkg"]
+
+#nimble bug: can't install JitterAPI.framework and all its symbolic links, gotta install them one by one (without symlinks)
+else:
+    installDirs  = @[
+        "omnimaxpkg/JIT", 
+        "omnimaxpkg/Static", 
+        "omnimaxpkg/deps/max-api/include", 
+        "omnimaxpkg/deps/max-api/script", 
+        "omnimaxpkg/deps/max-api/site", 
+        "omnimaxpkg/deps/max-api/lib/mac/JitterAPI.framework/Versions/A", 
+        "omnimaxpkg/deps/max-api/lib/mac/JitterAPI.framework/Versions/Current", 
+        "omnimaxpkg/deps/max-api/lib/mac/JitterAPI.framework/Resources"
+    ] 
+
+    installFiles = @["omnimaxpkg/deps/max-api/lib/mac/JitterAPI.framework/JitterAPI"]
 
 #Compiler executable
 bin = @["omnimax"]
@@ -26,6 +42,6 @@ after install:
     discard
 
 #As nimble install, but with -d:release, -d:danger and --opt:speed. Also installs omnimax_lang.
-task installOmniMax, "Install the omnimax_lang package and the omnicollider compiler":
-    #Build and install the omnicollider compiler executable. This will also trigger the "before install" to install omnimax_lang
+task installOmniMax, "Install the omnimax_lang package and the omnimax compiler":
+    #Build and install the omnimax compiler executable. This will also trigger the "before install" to install omnimax_lang
     exec "nimble install --passNim:-d:release --passNim:-d:danger --passNim:--opt:speed"
