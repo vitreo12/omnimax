@@ -1,27 +1,18 @@
-//C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\MSBuild\15.0\Bin\MSBuild.exe
-//.\MSBuild.exe /p:Configuration=Release /p:Platform=x64 "C:\Users\frank\Documents\Max 7\Library\max-sdk-7.3.3\source\audio\omnitest~\omnitest~.vcxproj"
-
-//omni .\OmniSaw.omni -b:64 -u:false -l:static -i:omnimax_lang -d:multithreadBuffers
-//mkdir build
-//cd build
-//cmake -G "MinGW Makefiles" ..
-//mingw32-make
-
+var OMNI_PROTO_INCLUDES = """
 #include <stdio.h>
 #include <array>
 #include <string>
-
 #include "c74_msp.h"
 #include "omni.h"
 
 using namespace c74::max;
-
 #define post(...)	object_post(NULL, __VA_ARGS__)
 
-#define MAXIMUM_BUFFER_NAMES_LEN 100
+"""
 
-//Needed for the "set" message parsing
-const std::array<std::string, 2> inlet_names = { "buf", "speed" };
+var OMNI_PROTO_CPP = """ 
+
+#define MAXIMUM_BUFFER_NAMES_LEN 100
 
 //global class pointer
 static t_class* this_class = nullptr;
@@ -51,7 +42,7 @@ int get_maxBufSize()
 /**************/
 /* Max struct */
 /**************/
-typedef struct _omnitest 
+typedef struct _omniobj 
 {
 	t_pxobject w_obj;
 	
@@ -59,7 +50,6 @@ typedef struct _omnitest
 	bool  omni_ugen_is_init;
 
 	//These are used to pass arguments to the init function (in1, in2, etc...)
-	int      num_ins;
 	double*  input_vals;
 	double** args;
 
@@ -69,7 +59,7 @@ typedef struct _omnitest
 	//Array of possible buffers and array of their names (used to parse the notify callback!!)
 	t_buffer_ref** buffer_refs_array;
 	char** 		   buffer_names_array;
-} t_omnitest;
+} t_omniobj;
 
 /****************************/
 /* omnimax buffer interface */
@@ -83,7 +73,7 @@ extern "C"
 
 		if(inlet >= 0)
 		{
-			t_omnitest* self = (t_omnitest*)max_object;
+			t_omniobj* self = (t_omniobj*)max_object;
 			
 			buffer_ref = self->buffer_refs_array[inlet];
 
@@ -156,30 +146,30 @@ extern "C"
 /**************************/
 /* Max template functions */
 /**************************/
-void* omnitest_new(t_symbol *s, long argc, t_atom *argv);
-t_max_err omnitest_notify(t_omnitest *x, t_symbol *s, t_symbol *msg, void *sender, void *data);
-void  omnitest_free(t_omnitest *x);
-void  omnitest_float(t_omnitest *x, double f);
-void  omnitest_int(t_omnitest *x, long n);
-void  omnitest_assist(t_omnitest* self, void* unused, t_assist_function io, long index, char* string_dest);
-void  omnitest_perform64(t_omnitest* x, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam);
-void  omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags);
-void  omnitest_receive_message_any_inlet(t_omnitest* self, t_symbol* s, long argc, t_atom* argv);
+void* omniobj_new(t_symbol *s, long argc, t_atom *argv);
+t_max_err omniobj_notify(t_omniobj *x, t_symbol *s, t_symbol *msg, void *sender, void *data);
+void  omniobj_free(t_omniobj *x);
+void  omniobj_float(t_omniobj *x, double f);
+void  omniobj_int(t_omniobj *x, long n);
+void  omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long index, char* string_dest);
+void  omniobj_perform64(t_omniobj* x, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam);
+void  omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags);
+void  omniobj_receive_message_any_inlet(t_omniobj* self, t_symbol* s, long argc, t_atom* argv);
 
 //Main
 void ext_main(void *r)
 {
-	this_class = class_new("libomnitest~", (method)omnitest_new, (method)omnitest_free, sizeof(t_omnitest), NULL, A_GIMME, 0);
+	this_class = class_new(OBJ_NAME, (method)omniobj_new, (method)omniobj_free, sizeof(t_omniobj), NULL, A_GIMME, 0);
 	
 	//class methods
-	class_addmethod(this_class, (method)omnitest_dsp64,	 "dsp64",  A_CANT,  0);
-	class_addmethod(this_class, (method)omnitest_float,	 "float",  A_FLOAT, 0);
-	class_addmethod(this_class, (method)omnitest_int,	 "int",    A_LONG,  0);
-	class_addmethod(this_class, (method)omnitest_assist, "assist", A_CANT,  0);
-	class_addmethod(this_class, (method)omnitest_notify, "notify", A_CANT,  0);
+	class_addmethod(this_class, (method)omniobj_dsp64,	 "dsp64",  A_CANT,  0);
+	class_addmethod(this_class, (method)omniobj_float,	 "float",  A_FLOAT, 0);
+	class_addmethod(this_class, (method)omniobj_int,	 "int",    A_LONG,  0);
+	class_addmethod(this_class, (method)omniobj_assist, "assist", A_CANT,  0);
+	class_addmethod(this_class, (method)omniobj_notify, "notify", A_CANT,  0);
 
 	//Message to any inlet
-	class_addmethod(this_class, (method)omnitest_receive_message_any_inlet, "anything", A_GIMME, 0);
+	class_addmethod(this_class, (method)omniobj_receive_message_any_inlet, "anything", A_GIMME, 0);
 
 	//Init all function pointers
 	Omni_InitGlobal(
@@ -196,33 +186,26 @@ void ext_main(void *r)
 }
 
 //New method looking at args
-void *omnitest_new(t_symbol *s, long argc, t_atom *argv)
+void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 {
 	//Alloc the object
-	t_omnitest *self = (t_omnitest *)object_alloc(this_class);
-
-	//These are set by analyzing omni's IO.txt
-	int num_ins  = 2;
-	int num_outs = 1;
-	
-	//Add num_ins. This is needed in the buffer notify function.
-	self->num_ins = num_ins;
+	t_omniobj *self = (t_omniobj *)object_alloc(this_class);
 
 	//Allocate memory for eventual buffers (this should actually just be allocated if there are buffers, this is just easier now)
-	self->buffer_refs_array = (t_buffer_ref**)malloc(num_ins * sizeof(t_buffer_ref*));
+	self->buffer_refs_array = (t_buffer_ref**)malloc(NUM_INS * sizeof(t_buffer_ref*));
 
 	//Allocate memory for buffers names (needed in the notify function!)
-	self->buffer_names_array = (char**)malloc(num_ins * sizeof(char*));
+	self->buffer_names_array = (char**)malloc(NUM_INS * sizeof(char*));
 
 	//These are used when sending float/int messages in inlets instead of signals
-	self->input_vals = (double*)malloc(num_ins * sizeof(double));
-	self->control_rate_inlets = (int*)malloc(num_ins * sizeof(int));
+	self->input_vals = (double*)malloc(NUM_INS * sizeof(double));
+	self->control_rate_inlets = (int*)malloc(NUM_INS * sizeof(int));
 
 	//Allocate memory for args to passed to init
-	self->args = (double**)malloc(num_ins * sizeof(double*));
+	self->args = (double**)malloc(NUM_INS * sizeof(double*));
 
 	//Init various arrays
-	for(int i = 0; i < num_ins; i++)
+	for(int i = 0; i < NUM_INS; i++)
 	{
 		//Allocate for all arguments.. Can't be bothered doing maths here
 		double* arg_ptr = (double*)malloc(sizeof(double));
@@ -239,8 +222,8 @@ void *omnitest_new(t_symbol *s, long argc, t_atom *argv)
 	//Parse arguments!
 	for(int y = 0; y < argc; y++)
 	{
-		//Execute only if y < num_ins
-		if(y >= num_ins)
+		//Execute only if y < NUM_INS
+		if(y >= NUM_INS)
 			break;
 
 		t_atom* arg      = (argv + y);
@@ -287,10 +270,10 @@ void *omnitest_new(t_symbol *s, long argc, t_atom *argv)
 	}
 
 	//Inlets
-	dsp_setup((t_pxobject *)self, num_ins);
+	dsp_setup((t_pxobject *)self, NUM_INS);
 
 	//Outlets
-	for(int y = 0; y < num_outs; y++)
+	for(int y = 0; y < NUM_OUTS; y++)
 		outlet_new((t_object *)self, "signal");				
 
 	//Necessary for no buffer aliasing!
@@ -299,23 +282,97 @@ void *omnitest_new(t_symbol *s, long argc, t_atom *argv)
 	return self;
 }
 
-//Float on any inlet
-void omnitest_float(t_omnitest *x, double f)
+//free object
+void omniobj_free(t_omniobj *self)
 {
-	long inlet = proxy_getinlet((t_object *)x);
-	
-	if(x->input_vals)
-		x->input_vals[inlet] = f; 
+	//Free omni ugen
+	if(self->omni_ugen)
+		Omni_UGenFree(self->omni_ugen);
+
+	//Free double arguments
+	if(self->args)
+	{
+		for(int i = 0; i < NUM_INS; i++)
+		{
+			double* arg_ptr = self->args[i];
+			if(arg_ptr)
+				free(arg_ptr);
+		}
+
+		free(self->args);
+	}
+
+	//Free input_vals
+	if(self->input_vals)
+		free(self->input_vals);
+
+	if(self->control_rate_inlets)
+		free(self->control_rate_inlets);
+
+	//Free buffer references
+	if(self->buffer_refs_array)
+	{
+		for(int y = 0; y < NUM_INS; y++)
+		{
+			t_buffer_ref* buffer_ref = self->buffer_refs_array[y];
+			if(buffer_ref)
+				object_free(buffer_ref);
+		}
+
+		free(self->buffer_refs_array);
+	}
+
+	//Free buffer names array
+	if(self->buffer_names_array)
+	{
+		for(int z = 0; z < NUM_INS; z++)
+		{
+			char* buffer_name = self->buffer_names_array[z];
+			if(buffer_name)
+				free(buffer_name);
+		}
+
+		free(self->buffer_names_array);
+	}
+
+	//Free dsp object
+	dsp_free((t_pxobject *)self);
 }
 
-//Int on any inlet
-void omnitest_int(t_omnitest *x, long f)
+//inlet/outlet names
+void omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long index, char* string_dest)
 {
-	omnitest_float(x, double(f));
+	if (io == ASSIST_INLET) 
+	{
+		for(int i = 0; i < NUM_INS; i++)
+		{
+			if(i == index)
+			{
+				std::string inlet_name = "(signal/float/symbol) ";
+				inlet_name.append(inlet_names[i].c_str());
+				strncpy(string_dest, inlet_name.c_str(), ASSIST_STRING_MAXSIZE);
+				break;
+			}
+		}
+	}
+
+	else if (io == ASSIST_OUTLET)
+	{
+		for(int i = 0; i < NUM_OUTS; i++)
+		{
+			if(i == index)
+			{
+				std::string outlet_name = "(signal) ";
+				outlet_name.append(outlet_names[i].c_str());
+				strncpy(string_dest, outlet_name.c_str(), ASSIST_STRING_MAXSIZE);
+				break;
+			}
+		}
+	}
 }
 
 //Send notification to buffer ref when something changes to the buffer (replaced, deleted, etc...)
-t_max_err omnitest_notify(t_omnitest *x, t_symbol *s, t_symbol *msg, void *sender, void *data)
+t_max_err omniobj_notify(t_omniobj *x, t_symbol *s, t_symbol *msg, void *sender, void *data)
 {
 	//This is the buffer_name that received the message
 	t_symbol* buffer_name = (t_symbol *)object_method((t_object *)sender, gensym("getname"));
@@ -323,7 +380,7 @@ t_max_err omnitest_notify(t_omnitest *x, t_symbol *s, t_symbol *msg, void *sende
 	post("NOTIFY: received message %s for buffer name %s", msg->s_name, buffer_name->s_name);
 
 	//Look for the buffer_name in the buffer array, to send the notify message to it
-	for(int i = 0; i < x->num_ins; i++)
+	for(int i = 0; i < NUM_INS; i++)
 	{	
 		t_buffer_ref* current_buffer_ref = x->buffer_refs_array[i];
 		char* current_buffer_name = x->buffer_names_array[i];
@@ -345,91 +402,23 @@ t_max_err omnitest_notify(t_omnitest *x, t_symbol *s, t_symbol *msg, void *sende
 	return 0;
 }
 
-//free object
-void omnitest_free(t_omnitest *self)
+//Float on any inlet
+void omniobj_float(t_omniobj *x, double f)
 {
-	//Free omni ugen
-	if(self->omni_ugen)
-		Omni_UGenFree(self->omni_ugen);
-
-	//Free double arguments
-	if(self->args)
-	{
-		for(int i = 0; i < self->num_ins; i++)
-		{
-			double* arg_ptr = self->args[i];
-			if(arg_ptr)
-				free(arg_ptr);
-		}
-
-		free(self->args);
-	}
-
-	//Free input_vals
-	if(self->input_vals)
-		free(self->input_vals);
-
-	if(self->control_rate_inlets)
-		free(self->control_rate_inlets);
-
-	//Free buffer references
-	if(self->buffer_refs_array)
-	{
-		for(int y = 0; y < self->num_ins; y++)
-		{
-			t_buffer_ref* buffer_ref = self->buffer_refs_array[y];
-			if(buffer_ref)
-				object_free(buffer_ref);
-		}
-
-		free(self->buffer_refs_array);
-	}
-
-	//Free buffer names array
-	if(self->buffer_names_array)
-	{
-		for(int z = 0; z < self->num_ins; z++)
-		{
-			char* buffer_name = self->buffer_names_array[z];
-			if(buffer_name)
-				free(buffer_name);
-		}
-
-		free(self->buffer_names_array);
-	}
-
-	//Free dsp object
-	dsp_free((t_pxobject *)self);
+	long inlet = proxy_getinlet((t_object *)x);
+	
+	if(x->input_vals)
+		x->input_vals[inlet] = f; 
 }
 
-//inlet/outlet names
-void omnitest_assist(t_omnitest* self, void* unused, t_assist_function io, long index, char* string_dest)
+//Int on any inlet
+void omniobj_int(t_omniobj *x, long f)
 {
-	if (io == ASSIST_INLET) 
-	{
-		switch (index) 
-		{
-			//Inlets assists
-			case 0:
-				strncpy(string_dest, "(signal/symbol) in1", ASSIST_STRING_MAXSIZE);
-				break;
-		}
-	}
-
-	else if (io == ASSIST_OUTLET)
-	{
-		switch (index) 
-		{
-			//Outlets assists
-			case 0:
-				strncpy(string_dest, "(signal) out1", ASSIST_STRING_MAXSIZE);
-				break;
-		}
-	}
+	omniobj_float(x, double(f));
 }
 
 //deferred function
-void set_buffer_at_inlet(t_omnitest* self, long inlet, t_symbol* name)
+void set_buffer_at_inlet(t_omniobj* self, long inlet, t_symbol* name)
 {	
 	t_buffer_ref* buffer_ref = self->buffer_refs_array[inlet];
 	if(buffer_ref)
@@ -460,7 +449,7 @@ void set_buffer_at_inlet(t_omnitest* self, long inlet, t_symbol* name)
 	//	post("WARNING: The %s buffer has %d channels.", name->s_name, buffer_channels);
 }
 
-void omnitest_receive_message_any_inlet_defer(t_omnitest* self, t_symbol* s, long argc, t_atom* argv)
+void omniobj_receive_message_any_inlet_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 {
 	//inlet number
 	long in = proxy_getinlet((t_object *)self);
@@ -556,13 +545,13 @@ void omnitest_receive_message_any_inlet_defer(t_omnitest* self, t_symbol* s, lon
 //Format: 
 //either send a symbol to the specific correct inlet to modify the buffer,
 //OR send a "set in1 bufferName" to any inlet to set specific "in1" buffer to "bufferName".
-void omnitest_receive_message_any_inlet(t_omnitest* self, t_symbol* s, long argc, t_atom* argv)
+void omniobj_receive_message_any_inlet(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 {
-	defer(self, (method)omnitest_receive_message_any_inlet_defer, s, argc, argv);
+	defer(self, (method)omniobj_receive_message_any_inlet_defer, s, argc, argv);
 }
 
 //perform64
-void omnitest_perform64(t_omnitest* self, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam)
+void omniobj_perform64(t_omniobj* self, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam)
 {
 	/* Convert non-audio rate inlets to audio rate.. This is NOT optimized at all... */
 	//if there is at least one control inlet
@@ -598,7 +587,7 @@ void omnitest_perform64(t_omnitest* self, t_object* dsp64, double** ins, long nu
 }
 
 //dsp64
-void omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags) 
+void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags) 
 {
 	//Special case, if there is a change in samplerate or bufsize, 
 	//and object has already been allocated and initialized, 
@@ -631,12 +620,12 @@ void omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samp
 	}
 
 	//Reset input rates first
-	for(int i = 0; i < self->num_ins; i++)
+	for(int i = 0; i < NUM_INS; i++)
 		self->control_rate_inlets[i] = -1;
 
 	//Look for control rate inlets
 	int control_rate_inlets_increment = 0;
-	for(int i = 0; i < self->num_ins; i++)
+	for(int i = 0; i < NUM_INS; i++)
 	{
 		//If it's not audio rate
 		bool control_rate_inlet = !(bool(count[i]));
@@ -651,7 +640,7 @@ void omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samp
 		}
 	}
 
-	for(int y = 0; y < self->num_ins; y++)
+	for(int y = 0; y < NUM_INS; y++)
 	{
 		int control_rate_inlet = self->control_rate_inlets[y];
 		
@@ -663,5 +652,6 @@ void omnitest_dsp64(t_omnitest* self, t_object* dsp64, short *count, double samp
 
 	//Add dsp64 method
 	object_method_direct(void, (t_object*, t_object*, t_perfroutine64, long, void*),
-						 dsp64, gensym("dsp_add64"), (t_object*)self, (t_perfroutine64)omnitest_perform64, 0, NULL);
+						 dsp64, gensym("dsp_add64"), (t_object*)self, (t_perfroutine64)omniobj_perform64, 0, NULL);
 }
+"""
