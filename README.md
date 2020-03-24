@@ -7,13 +7,6 @@ Compile [omni](https://github.com/vitreo12/omni) code into [Max](https://cycling
 The software needed to run `omnimax` is the same as `omni`'s, with the addition of [cmake](https://cmake.org/) for all platforms and
 [MinGW](http://mingw.org/) for Windows.
 
-### **Linux**
-
-Refer to your distribution's package manager and make sure you've got installed:
-1) [nim](https://nim-lang.org/)
-2) [git](https://git-scm.com/)
-3) [cmake](https://cmake.org/) 
-
 ### **MacOS**
 
 To install dependencies on MacOS it is suggested to use a package manager like [brew](https://brew.sh/). 
