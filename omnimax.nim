@@ -217,7 +217,7 @@ proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : str
     var cmake_cmd : string
 
     when(not(defined(Windows))):
-        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
+        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
     else:
         #Cmake wants a path in unix style, not windows! Replace "/" with "\"
         let fullPathToNewFolder_Unix = fullPathToNewFolder.replace("\\", "/")
@@ -242,11 +242,12 @@ proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : str
     #make command
     when not(defined(Windows)):
         let 
-            compilation_cmd = "cmake --build ."
+            compilation_cmd = "make"
             failedCompilation = execCmd(compilation_cmd)
     else:
         let 
-            compilation_cmd = "cmake --build . --config Release"
+            compilation_cmd  = "mingw32-make"
+            #compilation_cmd = "cmake --build . --config Release"
             failedCompilation = execShellCmd(compilation_cmd)
 
     if failedCompilation > 0:
@@ -354,8 +355,8 @@ proc omnimax(omniFiles : seq[string], mc : bool = true, architecture : string = 
 #Dispatch the omnimax function as the CLI one
 dispatch(omnimax, 
     short={
-        "maxPath" : 'p',
-        "mc" : 'm'
+        "mc" : 'm',
+        "maxPath" : 'p'
     }, 
 
     help={ 
