@@ -11,7 +11,7 @@ requires "omni >= 0.1.0"
 skipDirs = @["omnimax_lang"]
 
 #Install build/deps
-installDirs = @["omnimaxpkg"] 
+installDirs  = @["omnimaxpkg/JIT", "omnimaxpkg/Static", "omnimaxpkg/deps/max-api/include", "omnimaxpkg/deps/max-api/script", "omnimaxpkg/deps/max-api/site"] 
 
 #Compiler executable
 bin = @["omnimax"]
