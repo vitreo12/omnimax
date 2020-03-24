@@ -34,7 +34,7 @@ proc printDone(msg : string) : void =
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
-proc omnimax_single_file(omniFile : string, mc : bool = false, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
+proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
 
     let fullPathToFile = omniFile.normalizedPath().expandTilde().absolutePath()
 
@@ -325,18 +325,20 @@ proc omnimax_single_file(omniFile : string, mc : bool = false, architecture : st
 
     #Copy to extensions folder
     let 
-        fullPathToOutDir_tilde = $expanded_out_dir & "/" & $omni_max_object_name_tilde
-        fullPathToOutDir = $expanded_out_dir & "/" & $omni_file_name
+        fullPathToOutDir_tilde = $expanded_out_dir & "/" & $omni_max_object_name_tilde #omnisaw_tilde
+        fullPathToOutDir = $expanded_out_dir & "/" & $omni_file_name #OmniSaw
     
-    #Remove previous folder if there was, and copy new one
-    removeDir(fullPathToOutDir_tilde)
-    copyDir(fullPathToNewFolder, fullPathToOutDir_tilde)
+    #Remove temp folder used for compilation only if it differs from outDir (otherwise, it's gonna delete the actual folder)
+    if fullPathToOutDir_tilde != fullPathToNewFolder:
+        #Remove previous folder if there was, and copy new one
+        removeDir(fullPathToOutDir_tilde)
+        copyDir(fullPathToNewFolder, fullPathToOutDir_tilde)
 
-    #Rename the folder to omni_name (instead of omni_name_tilde)
-    moveDir(fullPathToOutDir_tilde, fullPathToOutDir)
+        #Rename the folder to omni_name (instead of omni_name_tilde)
+        moveDir(fullPathToOutDir_tilde, fullPathToOutDir)
 
-    #Remove temp folder used for compilation
-    removeDir(fullPathToNewFolder)
+        #Remove temp folder used for compilation
+        removeDir(fullPathToNewFolder)
 
     printDone("The " & $omni_max_object_name_tilde_symbol & " object has been correctly built and installed in \"" & $expanded_out_dir & "\".")
 
