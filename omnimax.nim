@@ -331,8 +331,11 @@ proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : str
     
     #Remove temp folder used for compilation only if it differs from outDir (otherwise, it's gonna delete the actual folder)
     if fullPathToOutDir_tilde != fullPathToNewFolder:
-        #Remove previous folder if there was, and copy new one
+        #Remove previous folders if there were
         removeDir(fullPathToOutDir_tilde)
+        removeDir(fullPathToOutDir)
+        
+        #Copy new one
         copyDir(fullPathToNewFolder, fullPathToOutDir_tilde)
 
         #Rename the folder to omni_name (instead of omni_name_tilde)
