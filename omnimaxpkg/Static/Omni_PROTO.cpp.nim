@@ -56,6 +56,9 @@ typedef struct _omniobj
 	//This won't store boolean values, but the input numbers that are at audio rate.
 	int* control_rate_inlets;
 
+	//Used for control_rate_inlets
+	double** control_rate_arrays;
+
 	//Array of possible buffers and array of their names (used to parse the notify callback!!)
 	t_buffer_ref** buffer_refs_array;
 	char** 		   buffer_names_array;
@@ -200,6 +203,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 	//These are used when sending float/int messages in inlets instead of signals
 	self->input_vals = (double*)malloc(NUM_INS * sizeof(double));
 	self->control_rate_inlets = (int*)malloc(NUM_INS * sizeof(int));
+	self->control_rate_arrays = (double**)malloc(NUM_INS * sizeof(double*));
 
 	//Allocate memory for args to passed to init
 	self->args = (double**)malloc(NUM_INS * sizeof(double*));
@@ -215,8 +219,9 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 		self->control_rate_inlets[i] = -1;
 
 		//Initialize buf_refs and buf_names to nullptr! This is essential!
-		self->buffer_refs_array[i]  = nullptr;
-		self->buffer_names_array[i] = nullptr;
+		self->buffer_refs_array[i]   = nullptr;
+		self->buffer_names_array[i]  = nullptr;
+		self->control_rate_arrays[i] = nullptr;
 	}
 
 	//Parse arguments!
@@ -308,6 +313,18 @@ void omniobj_free(t_omniobj *self)
 
 	if(self->control_rate_inlets)
 		free(self->control_rate_inlets);
+
+	if(self->control_rate_arrays)
+	{
+		for(int h = 0; h < NUM_INS; h++)
+		{
+			double* control_rate_array = self->control_rate_arrays[h];
+			if(control_rate_array)
+				free(control_rate_array);
+		}
+
+		free(self->control_rate_arrays);
+	}
 
 	//Free buffer references
 	if(self->buffer_refs_array)
@@ -557,18 +574,25 @@ void omniobj_perform64(t_omniobj* self, t_object* dsp64, double** ins, long numi
 	//if there is at least one control inlet
 	if(self->control_rate_inlets[0] >= 0)
 	{
-		for(int i = 0; i < sampleframes; i++)
+		for(int i = 0; i < NUM_INS; i++)
 		{
-			//Should I save the number of kr inlets and loop over those instead?
-			for(int y = 0; y < numins; y++)
+			int control_rate_inlet = self->control_rate_inlets[i];
+			
+			//if audio rate or inlet is used for buffers, break!
+			if(control_rate_inlet < 0)
+				break;
+			
+			double  control_rate_inlet_val = self->input_vals[control_rate_inlet];
+			double* control_rate_array     = self->control_rate_arrays[control_rate_inlet];
+			
+			if(control_rate_array)
 			{
-				int control_rate_inlet = self->control_rate_inlets[y];
-				
-				//if audio rate or inlet is used for buffers, break!
-				if(control_rate_inlet < 0)
-					break;
-				
-				ins[control_rate_inlet][i] = self->input_vals[control_rate_inlet];
+				//fill values
+				for(int y = 0; y < sampleframes; y++)
+					control_rate_array[y] = control_rate_inlet_val;
+
+				//Switch pointers in ins**
+				ins[control_rate_inlet] = control_rate_array;
 			}
 		}
 	}
@@ -637,17 +661,12 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		{
 			self->control_rate_inlets[control_rate_inlets_increment] = i;
 			control_rate_inlets_increment++;
-		}
-	}
 
-	for(int y = 0; y < NUM_INS; y++)
-	{
-		int control_rate_inlet = self->control_rate_inlets[y];
-		
-		if(control_rate_inlet < 0)
-			break;
-		
-		post("control rate inlet: %d", control_rate_inlet);
+			//Allocate array if necessary
+			double* control_rate_array = self->control_rate_arrays[i];
+			if(!control_rate_array)
+				self->control_rate_arrays[i] = (double*)malloc(maxvectorsize * sizeof(double));
+		}
 	}
 
 	//Add dsp64 method
