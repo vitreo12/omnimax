@@ -24,9 +24,24 @@ long   max_bufsize    = 0;
 /********************************/
 /* print / samplerate / bufsize */
 /********************************/
-void maxPrint(const char* formatString, ...)
+void maxPrint_str_val(const char* format_string, size_t value)
 {
-	post(formatString);
+	post("%s%d", format_string, value);
+}
+
+void maxPrint_str(const char* format_string)
+{
+	post("%s", format_string);
+}
+
+void maxPrint_float(float value)
+{
+	post("%f", value);
+}
+
+void maxPrint_int(int value)
+{
+	post("%d", value);
 }
 
 double get_maxSamplerate()
@@ -72,12 +87,32 @@ extern "C"
 	//Called in init
 	void* init_buffer_at_inlet(void* max_object, int inlet)
 	{
-		t_buffer_ref* buffer_ref = nullptr;
+		if(!max_object)
+			return nullptr;
 
-		if(inlet >= 0)
+		//inlet is already 0..(NUM_INS-1)
+		if(inlet >= NUM_INS)
+		{
+			post("ERROR: Buffer: input %d exceeds maximum number of inputs: %d", (inlet + 1), NUM_INS);
+			return nullptr;
+		}
+		else if(inlet > 31)
+		{
+			post("ERROR: Buffer: input %d out of bounds. Maximum input number is 32.", inlet);
+			return nullptr;
+		}
+		else if(inlet < 0)
+		{
+			post("ERROR: Buffer: input %d out of bounds. Minimum input number is 1.", inlet);
+			return nullptr;
+		}
+
+		t_buffer_ref* buffer_ref = nullptr;
+		
+		//These two checks down here are useless (tested already), remove them ASAP!
+		if(inlet >= 0 && inlet < NUM_INS)
 		{
 			t_omniobj* self = (t_omniobj*)max_object;
-			
 			buffer_ref = self->buffer_refs_array[inlet];
 
 			//If not initialized already, initialize it with a random identifier.
@@ -179,7 +214,10 @@ void ext_main(void *r)
 		(omni_alloc_func_t*)malloc, 
 		(omni_realloc_func_t*)realloc, 
 		(omni_free_func_t*)free, 
-		(omni_print_func_t*)maxPrint, 
+		(omni_print_str_val_func_t*)maxPrint_str_val, 
+		(omni_print_str_func_t*)maxPrint_str,
+		(omni_print_float_func_t*)maxPrint_float,  
+		(omni_print_int_func_t*)maxPrint_int,  
 		(omni_get_samplerate_func_t*)get_maxSamplerate,
 		(omni_get_bufsize_func_t*)get_maxBufSize
 	);

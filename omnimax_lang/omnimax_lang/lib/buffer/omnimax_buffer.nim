@@ -27,13 +27,8 @@ type
 
     Buffer* = ptr Buffer_obj
 
-const
-    exceeding_max_ugen_inputs = "ERROR: Buffer: exceeding maximum number of inputs: %d\n"
-    upper_exceed_input_error  = "ERROR: Buffer: input %d out of bounds. Maximum input number is 32.\n"
-    lower_exceed_input_error  = "ERROR: Buffer: input %d out of bounds. Minimum input number is 1.\n"
-
 #Init buffer
-proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, omni_inputs : int, buffer_interface : pointer) : Buffer =
+proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer) : Buffer =
     #Just allocate the object. All max related init are done in get_buffer
     result = cast[Buffer](omni_alloc(cast[culong](sizeof(Buffer_obj))))
 
@@ -45,20 +40,16 @@ proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, omn
     result.input_num   = real_input_num
 
     #Create the buffer_ref or get one if it was already created in Max from the args
+    #This will return nullptr if max_object is nil or input number is out of bounds
     result.buffer_ref = init_buffer_at_inlet(result.max_object, cint(real_input_num))
 
-    if input_num > omni_inputs:
-        omni_print(exceeding_max_ugen_inputs, omni_inputs)
-
-    elif input_num > 32:
-        omni_print(upper_exceed_input_error, input_num)
-
-    elif input_num < 1:
-        omni_print(lower_exceed_input_error, input_num)
+    #If failed, set input num to 0 (which will then be picked by get_buffer(buffer, ins[0][0])). Minimum num of inputs in omni is 1 anyway (for now...)
+    if isNil(result.buffer_ref):
+        result.input_num = 0
 
 #Template which also uses the const omni_inputs, which belongs to the omni dsp new module. It will string substitute Buffer.init(1) with initInner(Buffer, 1, omni_inputs, ugen.buffer_interface_let)
 template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
-    innerInit(Buffer, input_num, omni_inputs, buffer_interface) #omni_inputs AND user_buffer_interface belong to the scope of the dsp module and the body of the init function
+    innerInit(Buffer, input_num, buffer_interface) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 proc destructor*(buffer : Buffer) : void =
     print("Calling Buffer's destructor")
@@ -69,19 +60,19 @@ proc destructor*(buffer : Buffer) : void =
 proc get_buffer*(buffer : Buffer, fbufnum : float32) : bool =
     let buffer_ref = buffer.buffer_ref
     if isNil(buffer_ref):
-        #omni_print("INVALID BUFFER_REF")
+        #print("INVALID BUFFER_REF")
         return false
 
     let buffer_obj    = get_buffer_obj(buffer_ref)
     buffer.buffer_obj = buffer_obj
     if isNil(buffer_obj):
-        #omni_print("INVALID BUFFER_OBJ")
+        #print("INVALID BUFFER_OBJ")
         return false
     
     let buffer_data    = cast[ptr UncheckedArray[float32]](lock_buffer_Max(buffer_obj))
     buffer.buffer_data = buffer_data
     if isNil(cast[pointer](buffer_data)):
-        #omni_print("INVALID DATA")
+        #sprint("INVALID DATA")
         return false
     
     #All good, go on with the perform function
