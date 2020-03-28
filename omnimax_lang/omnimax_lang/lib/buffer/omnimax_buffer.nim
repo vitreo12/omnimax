@@ -72,7 +72,7 @@ proc get_buffer*(buffer : Buffer, fbufnum : float32) : bool =
     let buffer_data    = cast[ptr UncheckedArray[float32]](lock_buffer_Max(buffer_obj))
     buffer.buffer_data = buffer_data
     if isNil(cast[pointer](buffer_data)):
-        #sprint("INVALID DATA")
+        #print("INVALID DATA")
         return false
     
     #All good, go on with the perform function
