@@ -4,8 +4,10 @@ Compile [omni](https://github.com/vitreo12/omni) code into [Max](https://cycling
 
 ## **Requirements**
 
-The software needed to run `omnimax` is the same as `omni`'s, with the addition of [cmake](https://cmake.org/) for all platforms and
-[MinGW](http://mingw.org/) for Windows.
+1) [nim](https://nim-lang.org/)
+2) [git](https://git-scm.com/)
+3) [cmake](https://cmake.org/) 
+4) [gcc](https://gcc.gnu.org/) (`Windows`)  /  [clang](https://clang.llvm.org/) (`MacOS`)
 
 ### **MacOS**
 
@@ -17,6 +19,11 @@ To install `brew`, simply open the `Terminal` app and run this command :
 After `brew` has been installed, run the following command in the `Terminal` app to install `nim` and `cmake`:
 
     brew install nim cmake
+
+Then, make sure that the `~/.nimble/bin` directory is set in your shell `$PATH`.
+If using bash (the default shell in MacOS), simply edit (or create if it doesn't exist) the `~/.bash_profile` file and add this line to it: 
+
+    export PATH=$PATH:~/.nimble/bin
 
 ### **Windows:**
 
