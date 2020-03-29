@@ -24,7 +24,7 @@ long   max_bufsize    = 0;
 /********************************/
 /* print / samplerate / bufsize */
 /********************************/
-void maxPrint_StrVal(const char* format_string, size_t value)
+void maxPrint_debug(const char* format_string, size_t value)
 {
 	post("%s%d", format_string, value);
 }
@@ -214,7 +214,7 @@ void ext_main(void *r)
 		(omni_alloc_func_t*)malloc, 
 		(omni_realloc_func_t*)realloc, 
 		(omni_free_func_t*)free, 
-		(omni_print_StrVal_func_t*)maxPrint_StrVal, 
+		(omni_print_debug_func_t*)maxPrint_debug, 
 		(omni_print_str_func_t*)maxPrint_str,
 		(omni_print_float_func_t*)maxPrint_float,  
 		(omni_print_int_func_t*)maxPrint_int,  
