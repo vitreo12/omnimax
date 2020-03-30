@@ -30,7 +30,7 @@ type
 #Init buffer
 proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer) : Buffer =
     #Just allocate the object. All max related init are done in get_buffer
-    result = cast[Buffer](omni_alloc(cast[culong](sizeof(Buffer_obj))))
+    result = cast[Buffer](omni_alloc(culong(sizeof(Buffer_obj))))
 
     #Assign the max object the buffer refers to
     result.max_object = buffer_interface
