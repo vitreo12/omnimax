@@ -28,9 +28,12 @@ type
     Buffer* = ptr Buffer_obj
 
 #Init buffer
-proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer) : Buffer =
+proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer, ugen_auto_mem : ptr OmniAutoMem) : Buffer =
     #Just allocate the object. All max related init are done in get_buffer
     result = cast[Buffer](omni_alloc(culong(sizeof(Buffer_obj))))
+
+    #Register this Buffer's memory to the ugen_auto_mem
+    ugen_auto_mem.registerChild(result)
 
     #Assign the max object the buffer refers to
     result.max_object = buffer_interface
@@ -49,7 +52,7 @@ proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buf
 
 #Template which also uses the const omni_inputs, which belongs to the omni dsp new module. It will string substitute Buffer.init(1) with initInner(Buffer, 1, omni_inputs, ugen.buffer_interface_let)
 template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
-    innerInit(Buffer, input_num, buffer_interface) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
+    innerInit(Buffer, input_num, buffer_interface, ugen_auto_mem) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 proc destructor*(buffer : Buffer) : void =
     print("Calling Buffer's destructor")
