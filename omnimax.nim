@@ -1,6 +1,6 @@
 import cligen, terminal, os, strutils, osproc
 
-include "omnimaxpkg/Static/Omni_PROTO.cpp.nim"
+#the CMakeLists doesn't need to be re-evaluated at each loop
 include "omnimaxpkg/Static/CMakeLists.txt.nim"
 
 #Package version is passed as argument when building. It will be constant and set correctly
@@ -34,17 +34,10 @@ proc printDone(msg : string) : void =
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
-proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
+proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
 
-    let fullPathToFile = omniFile.normalizedPath().expandTilde().absolutePath()
-
-    #Check if file exists
-    if not fullPathToFile.existsFile():
-        printError($fullPathToFile & " doesn't exist.")
-        return 1
-    
     var 
-        omniFile     = splitFile(fullPathToFile)
+        omniFile     = splitFile(fileFullPath)
         omniFileDir  = omniFile.dir
         omniFileName = omniFile.name
         omniFileExt  = omniFile.ext
@@ -55,7 +48,7 @@ proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : str
 
     #Check file extension
     if not(omniFileExt == ".omni") and not(omniFileExt == ".oi"):
-        printError($fullPathToFile & " is not an omni file.")
+        printError($fileFullPath & " is not an omni file.")
         return 1
 
     let expanded_max_path = maxPath.normalizedPath().expandTilde().absolutePath()
@@ -97,14 +90,14 @@ proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : str
     createDir(fullPathToNewFolder)
 
     #Copy omniFile to folder
-    copyFile(fullPathToFile, fullPathToOmniFile)
+    copyFile(fileFullPath, fullPathToOmniFile)
 
     # ================ #
     # COMPILE NIM FILE #
     # ================ #
 
     #Compile nim file. Only pass the -d:writeIO and -d:tempDir flag here, so it generates the IO.txt file.
-    let omni_command = "omni \"" & $fullPathToFile & "\" -i:omnimax_lang -b:64 -u:false -l:static -d:multithreadBuffers -d:writeIO -d:tempDir:\"" & $fullPathToNewFolder & "\" -o:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" -i:omnimax_lang -b:64 -u:false -l:static -d:multithreadBuffers -d:writeIO -d:tempDir:\"" & $fullPathToNewFolder & "\" -o:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path... go figure!
     when not defined(Windows):
@@ -188,6 +181,9 @@ proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : str
                     const_outlet_names.add("\"" & $output_name & "\" };")
                 else:
                     const_outlet_names.add("\"" & $output_name & "\", ")
+
+    #This is the cpp file to overwrite! Need it at every iteration
+    include "omnimaxpkg/Static/Omni_PROTO.cpp.nim"
     
     #Reconstruct the cpp file
     OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
@@ -350,7 +346,28 @@ proc omnimax_single_file(omniFile : string, mc : bool = true, architecture : str
 
 proc omnimax(omniFiles : seq[string], mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
     for omniFile in omniFiles:
-        if omnimax_single_file(omniFile, mc, architecture, outDir, maxPath, removeBuildFiles) > 0:
+        #Get full extended path
+        let omniFileFullPath = omniFile.normalizedPath().expandTilde().absolutePath()
+
+        #If it's a file, compile it
+        if omniFileFullPath.existsFile():
+            if omnimax_single_file(omniFileFullPath, mc, architecture, outDir, maxPath, removeBuildFiles) > 0:
+                return 1
+
+        #If it's a dir, compile all .omni/.oi files in it
+        elif omniFileFullPath.existsDir():
+            for kind, dirFile in walkDir(omniFileFullPath):
+                if kind == pcFile:
+                    let 
+                        dirFileFullPath = dirFile.normalizedPath().expandTilde().absolutePath()
+                        dirFileExt = dirFileFullPath.splitFile().ext
+                    
+                    if dirFileExt == ".omni" or dirFileExt == ".oi":
+                        if omnimax_single_file(dirFileFullPath, mc, architecture, outDir, maxPath, removeBuildFiles) > 0:
+                            return 1
+
+        else:
+            printError($omniFileFullPath & " does not exist.")
             return 1
     
     return 0

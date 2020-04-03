@@ -28,9 +28,12 @@ type
     Buffer* = ptr Buffer_obj
 
 #Init buffer
-proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer) : Buffer =
+proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer, ugen_auto_mem : ptr OmniAutoMem) : Buffer {.inline.} =
     #Just allocate the object. All max related init are done in get_buffer
     result = cast[Buffer](omni_alloc(culong(sizeof(Buffer_obj))))
+
+    #Register this Buffer's memory to the ugen_auto_mem
+    ugen_auto_mem.registerChild(result)
 
     #Assign the max object the buffer refers to
     result.max_object = buffer_interface
@@ -49,15 +52,10 @@ proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buf
 
 #Template which also uses the const omni_inputs, which belongs to the omni dsp new module. It will string substitute Buffer.init(1) with initInner(Buffer, 1, omni_inputs, ugen.buffer_interface_let)
 template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
-    innerInit(Buffer, input_num, buffer_interface) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
-
-proc destructor*(buffer : Buffer) : void =
-    print("Calling Buffer's destructor")
-    let buffer_ptr = cast[pointer](buffer)
-    omni_free(buffer_ptr)
+    innerInit(Buffer, input_num, buffer_interface, ugen_auto_mem) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 #Called at start of perform. This should also lock the buffer.
-proc get_buffer*(buffer : Buffer, fbufnum : float32) : bool =
+proc get_buffer*(buffer : Buffer, fbufnum : float32) : bool {.inline.} =
     let buffer_ref = buffer.buffer_ref
     if isNil(buffer_ref):
         #print("INVALID BUFFER_REF")
@@ -78,7 +76,7 @@ proc get_buffer*(buffer : Buffer, fbufnum : float32) : bool =
     #All good, go on with the perform function
     return true
 
-proc unlock_buffer*(buffer : Buffer) : void =
+proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
     unlock_buffer_Max(buffer.buffer_obj)
 
 ##########
@@ -86,7 +84,7 @@ proc unlock_buffer*(buffer : Buffer) : void =
 ##########
 
 #1 channel
-proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float32 =
+proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float32 {.inline.} =
     let 
         buf_data = a.buffer_data
         buf_obj  = a.buffer_obj
@@ -98,7 +96,7 @@ proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float32 =
     return float32(0.0)
 
 #more than 1 channel
-proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : float32 =
+proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : float32 {.inline.} =
     let 
         buf_data = a.buffer_data
         buf_obj  = a.buffer_obj
@@ -115,7 +113,7 @@ proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : flo
 ##########
 
 #1 channel
-proc `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : void =
+proc `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : void {.inline.} =
     var buf_data = a.buffer_data
     
     let 
@@ -127,7 +125,7 @@ proc `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : void =
         buf_data[index] = value
 
 #more than 1 channel
-proc `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : void =
+proc `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : void {.inline.} =
     var buf_data = a.buffer_data
     let 
         buf_obj = a.buffer_obj
