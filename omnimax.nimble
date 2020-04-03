@@ -32,6 +32,11 @@ bin = @["omnimax"]
 #If using "nimble install" instead of "nimble installOmniMax", make sure omnimax_lang is still getting installed
 before install:
     #getPkgDir() here points to the current omnimax source folder
+    let package_dir = getPkgDir()
+    
+    withDir(package_dir):
+        exec "git submodule update --init --recursive"
+
     withDir(getPkgDir() & "/omnimax_lang"):
         exec "nimble install"
 
