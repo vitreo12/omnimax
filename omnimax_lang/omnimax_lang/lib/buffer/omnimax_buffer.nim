@@ -55,7 +55,7 @@ template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : unt
     innerInit(Buffer, input_num, buffer_interface, ugen_auto_mem) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 #Called at start of perform. This should also lock the buffer.
-proc get_buffer*(buffer : Buffer, fbufnum : float32) : bool {.inline.} =
+proc get_buffer*(buffer : Buffer, input_val : float32) : bool {.inline.} =
     let buffer_ref = buffer.buffer_ref
     if isNil(buffer_ref):
         #print("INVALID BUFFER_REF")
