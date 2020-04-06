@@ -275,7 +275,10 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 		double* arg_ptr = (double*)malloc(sizeof(double));
 		self->args[i]   = arg_ptr;
 
-		self->input_vals[i] = 0.0;
+		//Initialize with default values'array
+		self->input_vals[i] = default_vals[i];
+		
+		//Unchecked inlets (yet). Will be checked at the start of dsp function.
 		self->control_rate_inlets[i] = -1;
 
 		//Initialize buf_refs and buf_names to nullptr! This is essential!
