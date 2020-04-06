@@ -141,7 +141,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         io_file = readFile(fullPathToIOFile)
         io_file_seq = io_file.split('\n')
 
-    if io_file_seq.len != 4:
+    if io_file_seq.len != 5:
         printError("Invalid IO.txt file.")
         return 1
     
@@ -149,8 +149,10 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         num_inputs  = parseInt(io_file_seq[0])
         input_names_string = io_file_seq[1]
         input_names = input_names_string.split(',') #this is a seq now
-        num_outputs = parseInt(io_file_seq[2])
-        output_names_string = io_file_seq[3]
+        default_vals_string = io_file_seq[2]
+        default_vals = default_vals_string.split(',')
+        num_outputs = parseInt(io_file_seq[3])
+        output_names_string = io_file_seq[4]
         output_names = output_names_string.split(',') #this is a seq now
 
     # ======= #
@@ -161,6 +163,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         define_obj_name    = "#define OBJ_NAME \"" & $omni_max_object_name_tilde_symbol & "\""
         define_num_ins     = "#define NUM_INS " & $num_inputs
         const_inlet_names  = "const std::array<std::string," & $num_inputs & "> inlet_names = { "
+        const_default_vals = "const std::array<double, " & $num_inputs & "> default_vals = { " 
         define_num_outs    = "#define NUM_OUTS " & $num_outputs
         const_outlet_names = "const std::array<std::string," & $num_outputs & "> outlet_names = { "
 
@@ -168,21 +171,29 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     if input_names[0] == "__NO_PARAM_NAMES__":
         if num_inputs == 0:
             const_inlet_names.add("};")
+            const_default_vals.add("};")
         else:
             for i in 1..num_inputs:
+                let default_val = default_vals[(i - 1)]
                 if i == num_inputs:
                     const_inlet_names.add("\"in" & $i & "\" };")
+                    const_default_vals.add($default_val & " };")
                 else:
                     const_inlet_names.add("\"in" & $i & "\", ")
+                    const_default_vals.add($default_val & ", ")
     else:
         if num_inputs == 0:
             const_inlet_names.add("};")
+            const_default_vals.add("};")
         else:
             for index, input_name in input_names:
+                let default_val = default_vals[index]
                 if index == num_inputs - 1:
                     const_inlet_names.add("\"" & $input_name & "\" };")
+                    const_default_vals.add($default_val & " };")
                 else:
                     const_inlet_names.add("\"" & $input_name & "\", ")
+                    const_default_vals.add($default_val & ", ")
 
     #No output names
     if output_names[0] == "__NO_PARAM_NAMES__":
@@ -208,7 +219,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     include "omnimaxpkg/Static/Omni_PROTO.cpp.nim"
     
     #Reconstruct the cpp file
-    OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
+    OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & const_default_vals & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
     
     # =========== #
     # WRITE FILES #
