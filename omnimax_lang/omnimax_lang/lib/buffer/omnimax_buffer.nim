@@ -106,19 +106,19 @@ proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
 ##########
 
 #1 channel
-proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float32 {.inline.} =
+proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float {.inline.} =
     let 
         buf_data = a.buffer_data
         buf_obj  = a.buffer_obj
         index    = int(i)
 
     if index >= 0 and index < int(get_frames_buffer_Max(buf_obj)):
-        return buf_data[index]
+        return float(buf_data[index])
 
-    return float32(0.0)
+    return 0.0
 
 #more than 1 channel
-proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : float32 {.inline.} =
+proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : float {.inline.} =
     let 
         buf_data = a.buffer_data
         buf_obj  = a.buffer_obj
@@ -126,9 +126,9 @@ proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : flo
         index    = (int(i1) * channel) + channel
 
     if index >= 0 and index < int(get_samples_buffer_Max(buf_obj)):
-        return buf_data[index]
+        return float(buf_data[index])
     
-    return float32(0.0)
+    return 0.0
 
 ##########
 # SETTER #
