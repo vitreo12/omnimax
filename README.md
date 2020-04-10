@@ -58,4 +58,4 @@ Then, install `omnimax`:
 
 ## **Usage**
 
-    omnimax ~/.nimble/pkgs/omni_lang-0.1.0/omni_lang/examples/OmniSaw.omni                                                                                        
+    omnimax ~/.nimble/pkgs/omni-0.1.0/examples/OmniSaw.omni                                                                                      
