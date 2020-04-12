@@ -112,23 +112,6 @@ extern "C"
 		if(!max_object)
 			return nullptr;
 
-		//inlet is already 0..(NUM_INS-1)
-		if(inlet >= NUM_INS)
-		{
-			post("ERROR: Buffer: input %d exceeds maximum number of inputs: %d", (inlet + 1), NUM_INS);
-			return nullptr;
-		}
-		else if(inlet > 31)
-		{
-			post("ERROR: Buffer: input %d out of bounds. Maximum input number is 32.", inlet);
-			return nullptr;
-		}
-		else if(inlet < 0)
-		{
-			post("ERROR: Buffer: input %d out of bounds. Minimum input number is 1.", inlet);
-			return nullptr;
-		}
-
 		t_buffer_ref* buffer_ref = nullptr;
 		
 		//These two checks down here are useless (tested already), remove them ASAP!

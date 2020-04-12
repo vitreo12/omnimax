@@ -22,6 +22,8 @@
 
 #[ All these functions are defined in the Max object cpp file ]#
 
+import macros
+
 #Retrieve buffer_ref*, or initialize one with random name
 proc init_buffer_at_inlet(max_object : pointer, inlet : cint) : pointer {.importc, cdecl.}
 
@@ -81,8 +83,27 @@ proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buf
     if isNil(result.buffer_ref):
         result.input_num = 0
 
+#compile time check of input_num
+macro checkInputNum*(input_num_typed : typed, omni_inputs_typed : typed) : untyped =
+    let input_num_typed_kind = input_num_typed.kind
+    
+    if input_num_typed_kind != nnkIntLit:
+        error("Buffer input_num must be expressed as an integer literal value")
+    
+    let 
+        input_num = input_num_typed.intVal()
+        omni_inputs = omni_inputs_typed.intVal()
+
+    #If these checks fail set to sc_world to nil, which will invalidate the Buffer.
+    #result.input_num is needed for get_buffer(buffer, ins[0][0), as 1 is the minimum number for ins, for now...
+    if input_num > omni_inputs: 
+        error("Buffer: \"input_num\"" & $input_num & " is out of bounds: maximum number of inputs: " & $omni_inputs)
+    elif input_num < 1:
+        error("Buffer: \"input_num\"" & $input_num & " is out of bounds: minimum input number is 1")
+
 #Template which also uses the const omni_inputs, which belongs to the omni dsp new module. It will string substitute Buffer.init(1) with initInner(Buffer, 1, omni_inputs, ugen.buffer_interface_let)
 template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
+    checkInputNum(input_num, omni_inputs)
     innerInit(Buffer, input_num, buffer_interface, ugen_auto_mem) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 #Called at start of perform. This should also lock the buffer.
@@ -125,7 +146,7 @@ proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
 # GETTER #
 ##########
 
-proc getter(buffer : Buffer, index : int = 0, channel : int = 0) : float {.inline.} =
+proc getter(buffer : Buffer, channel : int = 0, index : int = 0) : float {.inline.} =
     let chans = buffer.chans
     
     var actual_index : int
@@ -142,38 +163,46 @@ proc getter(buffer : Buffer, index : int = 0, channel : int = 0) : float {.inlin
 
 #1 channel
 proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float {.inline.} =
-    return a.getter(int(i))
+    return a.getter(0, int(i))
 
 #more than 1 channel (i1 == channel, i2 == index)
 proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : float {.inline.} =
-    return a.getter(int(i2), int(i1))
+    return a.getter(int(i1), int(i2))
 
 #linear interp read (1 channel)
 proc read*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
-    let 
-        buf_len = buffer.length
-        index1 : int = safemod(int(index), buf_len)
-        index2 : int = safemod(index1 + 1, buf_len)
+    let buf_len = buffer.length
+    
+    if buf_len <= 0:
+        return 0.0
+
+    let
+        index1 : int = int(index) mod buf_len
+        index2 : int = (index1 + 1) mod buf_len
         frac : float  = float(index) - float(index1)
     
-    return linear_interp(frac, buffer.getter(index1), buffer.getter(index2))
+    return linear_interp(frac, buffer.getter(0, index1), buffer.getter(0, index2))
 
 #linear interp read (more than 1 channel) (i1 == channel, i2 == index)
 proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : float {.inline.} =
+    let buf_len = buffer.length
+
+    if buf_len <= 0:
+        return 0.0
+    
     let 
         chan_int = int(chan)
-        buf_len = buffer.length
-        index1 : int = safemod(int(index), buf_len)
-        index2 : int = safemod(index1 + 1, buf_len)
+        index1 : int = int(index) mod buf_len
+        index2 : int = (index1 + 1) mod buf_len
         frac : float  = float(index) - float(index1)
     
-    return linear_interp(frac, buffer.getter(index1, chan_int), buffer.getter(index2, chan_int))
+    return linear_interp(frac, buffer.getter(chan_int, index1), buffer.getter(chan_int, index2))
 
 ##########
 # SETTER #
 ##########
 
-proc setter[Y](buffer : Buffer, index : int = 0, channel : int = 0, x : Y) : void {.inline.} =
+proc setter[Y](buffer : Buffer, channel : int = 0, index : int = 0, x : Y) : void {.inline.} =
     let chans = buffer.chans
     
     var actual_index : int
@@ -188,11 +217,11 @@ proc setter[Y](buffer : Buffer, index : int = 0, channel : int = 0, x : Y) : voi
 
 #1 channel
 proc `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : void {.inline.} =
-    a.setter(int(i), 0, x)
+    a.setter(0, int(i), x)
 
 #more than 1 channel (i1 == channel, i2 == index)
 proc `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : void {.inline.} =
-    a.setter(int(i2), int(i1), x)
+    a.setter(int(i1), int(i2), x)
 
 #########
 # INFOS #
