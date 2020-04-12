@@ -177,9 +177,10 @@ proc read*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
         return 0.0
 
     let
-        index1 : int = int(index) mod buf_len
+        index_int = int(index)
+        index1 : int = index_int mod buf_len
         index2 : int = (index1 + 1) mod buf_len
-        frac : float  = float(index) - float(index1)
+        frac : float  = float(index) - float(index_int)
     
     return linear_interp(frac, buffer.getter(0, index1), buffer.getter(0, index2))
 
@@ -192,9 +193,10 @@ proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index :
     
     let 
         chan_int = int(chan)
-        index1 : int = int(index) mod buf_len
+        index_int = int(index)
+        index1 : int = index_int mod buf_len
         index2 : int = (index1 + 1) mod buf_len
-        frac : float  = float(index) - float(index1)
+        frac : float  = float(index) - float(index_int)
     
     return linear_interp(frac, buffer.getter(chan_int, index1), buffer.getter(chan_int, index2))
 
