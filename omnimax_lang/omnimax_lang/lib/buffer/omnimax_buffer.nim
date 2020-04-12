@@ -46,6 +46,10 @@ type
         buffer_obj  : pointer                      #pointer to t_buffer_obj
         buffer_data : ptr UncheckedArray[float32]  #actual float* data
         input_num*  : int                          #need to export it in order to be retrieved with the ins_Nim[buffer.input_num][0] syntax for get_buffer.
+        length      : int
+        size        : int
+        chans       : int
+        samplerate  : float
 
     Buffer* = ptr Buffer_obj
 
@@ -64,6 +68,11 @@ proc innerInit*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buf
     let real_input_num = int(input_num) - int(1)
     result.input_num   = real_input_num
 
+    result.length = 0
+    result.size = 0
+    result.chans = 0
+    result.samplerate = 0.0
+
     #Create the buffer_ref or get one if it was already created in Max from the args
     #This will return nullptr if max_object is nil or input number is out of bounds
     result.buffer_ref = init_buffer_at_inlet(result.max_object, cint(real_input_num))
@@ -78,85 +87,112 @@ template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : unt
 
 #Called at start of perform. This should also lock the buffer.
 proc get_buffer*(buffer : Buffer, input_val : float64) : bool {.inline.} =
+    #This is safely changed in the max cpp wrapper
     let buffer_ref = buffer.buffer_ref
     if isNil(buffer_ref):
-        #print("INVALID BUFFER_REF")
+        buffer.buffer_obj = nil #reset it to nil if there's the need to unlock buffer
         return false
 
-    let buffer_obj    = get_buffer_obj(buffer_ref)
-    buffer.buffer_obj = buffer_obj
+    let buffer_obj = get_buffer_obj(buffer_ref)
     if isNil(buffer_obj):
-        #print("INVALID BUFFER_OBJ")
+        buffer.buffer_obj = nil #reset it to nil if there's the need to unlock buffer
+        return false
+
+    #Buffer is good, lock it. If fails to look, return false
+    let buffer_data   = cast[ptr UncheckedArray[float32]](lock_buffer_Max(buffer_obj))
+    if isNil(cast[pointer](buffer_data)):
+        buffer.buffer_obj = nil #reset it to nil if there's the need to unlock buffer
         return false
     
-    let buffer_data    = cast[ptr UncheckedArray[float32]](lock_buffer_Max(buffer_obj))
-    buffer.buffer_data = buffer_data
-    if isNil(cast[pointer](buffer_data)):
-        #print("INVALID DATA")
-        return false
+    #Check if buffer pointer has changed. If that's the case, update all the pointers and the values
+    if buffer_obj != buffer.buffer_obj:
+        buffer.buffer_obj  = buffer_obj
+        buffer.buffer_data = buffer_data
+        buffer.length      = int(get_frames_buffer_Max(buffer_obj))
+        buffer.size        = int(get_samples_buffer_Max(buffer_obj))
+        buffer.chans       = int(get_channels_buffer_Max(buffer_obj))
+        buffer.samplerate  = float(get_samplerate_buffer_Max(buffer_obj))
     
     #All good, go on with the perform function
     return true
 
 proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
-    unlock_buffer_Max(buffer.buffer_obj)
+    #This check is needed as buffers could be unlocked when another one has been failed to acquire!
+    if not isNil(buffer.buffer_obj):
+        unlock_buffer_Max(buffer.buffer_obj)
 
 ##########
 # GETTER #
 ##########
 
+proc getter(buffer : Buffer, index : int = 0, channel : int = 0) : float {.inline.} =
+    let chans = buffer.chans
+    
+    var actual_index : int
+    
+    if chans == 1:
+        actual_index = index
+    else:
+        actual_index = (index * chans) + channel
+    
+    if actual_index >= 0 and actual_index < buffer.size:
+        return float(buffer.buffer_data[actual_index])
+    
+    return float(0.0)
+
 #1 channel
 proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float {.inline.} =
-    let 
-        buf_data = a.buffer_data
-        buf_obj  = a.buffer_obj
-        index    = int(i)
+    return a.getter(int(i))
 
-    if index >= 0 and index < int(get_frames_buffer_Max(buf_obj)):
-        return float(buf_data[index])
-
-    return 0.0
-
-#more than 1 channel
+#more than 1 channel (i1 == channel, i2 == index)
 proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : float {.inline.} =
-    let 
-        buf_data = a.buffer_data
-        buf_obj  = a.buffer_obj
-        channel  = int(i2)
-        index    = (int(i1) * channel) + channel
+    return a.getter(int(i2), int(i1))
 
-    if index >= 0 and index < int(get_samples_buffer_Max(buf_obj)):
-        return float(buf_data[index])
+#linear interp read (1 channel)
+proc read*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
+    let 
+        buf_len = buffer.length
+        index1 : int = safemod(int(index), buf_len)
+        index2 : int = safemod(index1 + 1, buf_len)
+        frac : float  = float(index) - float(index1)
     
-    return 0.0
+    return linear_interp(frac, buffer.getter(index1), buffer.getter(index2))
+
+#linear interp read (more than 1 channel) (i1 == channel, i2 == index)
+proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : float {.inline.} =
+    let 
+        chan_int = int(chan)
+        buf_len = buffer.length
+        index1 : int = safemod(int(index), buf_len)
+        index2 : int = safemod(index1 + 1, buf_len)
+        frac : float  = float(index) - float(index1)
+    
+    return linear_interp(frac, buffer.getter(index1, chan_int), buffer.getter(index2, chan_int))
 
 ##########
 # SETTER #
 ##########
 
+proc setter[Y](buffer : Buffer, index : int = 0, channel : int = 0, x : Y) : void {.inline.} =
+    let chans = buffer.chans
+    
+    var actual_index : int
+    
+    if chans == 1:
+        actual_index = index
+    else:
+        actual_index = (index * chans) + channel
+    
+    if actual_index >= 0 and actual_index < buffer.size:
+        buffer.buffer_data[actual_index] = float32(x)
+
 #1 channel
 proc `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : void {.inline.} =
-    var buf_data = a.buffer_data
-    
-    let 
-        buf_obj = a.buffer_obj
-        index   = int(i)
-        value   = float32(x)
+    a.setter(int(i), 0, x)
 
-    if index >= 0 and index < int(get_frames_buffer_Max(buf_obj)):
-        buf_data[index] = value
-
-#more than 1 channel
+#more than 1 channel (i1 == channel, i2 == index)
 proc `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : void {.inline.} =
-    var buf_data = a.buffer_data
-    let 
-        buf_obj = a.buffer_obj
-        channel = int(i2)
-        index   = (int(i1) * channel) + channel
-        value   = float32(x)
-
-    if index >= 0 and index < int(get_samples_buffer_Max(buf_obj)):
-        buf_data[index] = value
+    a.setter(int(i2), int(i1), x)
 
 #########
 # INFOS #
@@ -164,19 +200,19 @@ proc `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I
 
 #length of each frame in buffer
 proc len*(buffer : Buffer) : int {.inline.} =
-    return int(get_frames_buffer_Max(buffer.buffer_obj))
+    return buffer.length
 
 #Returns total size (frames * channels)
 proc size*(buffer : Buffer) : int {.inline.} =
-    return int(get_samples_buffer_Max(buffer.buffer_obj))
+    return buffer.size
 
 #Number of channels
-proc nchans*(buffer : Buffer) : int {.inline.} =
-    return int(get_channels_buffer_Max(buffer.buffer_obj))
+proc chans*(buffer : Buffer) : int {.inline.} =
+    return buffer.chans
 
 #Samplerate (float64)
 proc samplerate*(buffer : Buffer) : float {.inline.} =
-    return float(get_samplerate_buffer_Max(buffer.buffer_obj))
+    return buffer.samplerate
 
 #Sampledur (Float64)
 #proc sampledur*(buffer : Buffer) : float =
