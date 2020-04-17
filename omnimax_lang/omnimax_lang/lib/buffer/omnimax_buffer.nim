@@ -182,7 +182,7 @@ proc read*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
         index2 : int = (index1 + 1) mod buf_len
         frac : float  = float(index) - float(index_int)
     
-    return linear_interp(frac, buffer.getter(0, index1), buffer.getter(0, index2))
+    return float(linear_interp(frac, buffer.getter(0, index1), buffer.getter(0, index2)))
 
 #linear interp read (more than 1 channel) (i1 == channel, i2 == index)
 proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : float {.inline.} =
@@ -198,13 +198,13 @@ proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index :
         index2 : int = (index1 + 1) mod buf_len
         frac : float  = float(index) - float(index_int)
     
-    return linear_interp(frac, buffer.getter(chan_int, index1), buffer.getter(chan_int, index2))
+    return float(linear_interp(frac, buffer.getter(chan_int, index1), buffer.getter(chan_int, index2)))
 
 ##########
 # SETTER #
 ##########
 
-proc setter[Y](buffer : Buffer, channel : int = 0, index : int = 0, x : Y) : void {.inline.} =
+proc setter[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0, x : Y) : void {.inline.} =
     let chans = buffer.chans
     
     var actual_index : int
