@@ -673,7 +673,8 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		max_bufsize    = maxvectorsize;
 
 		//re-init the ugen
-		Omni_UGenInit64(self->omni_ugen, self->args, (int)maxvectorsize, samplerate, (void*)self);
+		int successful_omni_init = Omni_UGenInit64(self->omni_ugen, self->args, (int)maxvectorsize, samplerate, (void*)self);
+		self->omni_ugen_is_init  = successful_omni_init != 0;
 	}
 
 	//Standard case, don't re-init object everytime dsp chain is recompiled, but just one time:
@@ -685,8 +686,8 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		max_bufsize    = maxvectorsize;
 		
 		//init ugen
-		Omni_UGenInit64(self->omni_ugen, self->args, (int)maxvectorsize, samplerate, (void*)self);
-		self->omni_ugen_is_init = true;
+		int successful_omni_init = Omni_UGenInit64(self->omni_ugen, self->args, (int)maxvectorsize, samplerate, (void*)self);
+		self->omni_ugen_is_init  = successful_omni_init != 0;
 	}
 
 	//Reset input rates first
