@@ -42,7 +42,7 @@ proc get_samplerate_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.
 #proc get_sampledur_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.}
 
 type
-    Buffer_obj = object
+    Buffer_obj* = object
         max_object  : pointer                      #pointer to max's t_object
         buffer_ref  : pointer                      #pointer to t_buffer_ref
         buffer_obj  : pointer                      #pointer to t_buffer_obj
