@@ -106,8 +106,13 @@ template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : unt
     checkInputNum(input_num, omni_inputs)
     struct_init_inner(Buffer, input_num, buffer_interface, ugen_auto_mem) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
+#Register child so that it will be picked up in perform to run get_buffer / unlock_buffer
+proc checkValidity*(obj : Buffer, ugen_auto_buffer : ptr OmniAutoMem) : bool =
+    ugen_auto_buffer.registerChild(cast[pointer](obj))
+    return true
+
 #Called at start of perform. This should also lock the buffer.
-proc get_buffer*(buffer : Buffer, input_val : float64) : bool {.inline.} =
+proc get_buffer*(buffer : Buffer, input_val : float) : bool {.inline.} =
     #This is safely changed in the max cpp wrapper
     let buffer_ref = buffer.buffer_ref
     if isNil(buffer_ref):
