@@ -123,7 +123,7 @@ extern "C"
 			//If not initialized already, initialize it with a random identifier.
 			if(!buffer_ref)
 			{
-				post("Non-initialized buffer_ref. Doing it now!");
+				//post("Non-initialized buffer_ref. Doing it now!");
 
 				t_symbol* unique_name = symbol_unique();
 				buffer_ref = buffer_ref_new((t_object*)self, unique_name);
@@ -133,7 +133,7 @@ extern "C"
 				strcpy(self->buffer_names_array[inlet], unique_name->s_name); 
 			}
 
-			post("Init buffer: %p", (void*)buffer_ref);
+			//post("Init buffer: %p", (void*)buffer_ref);
 		}
 		
 		return (void*)buffer_ref;
@@ -287,7 +287,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 			self->args[y][0] = arg_val;
 			self->input_vals[y] = arg_val;
 
-			post("arg %d: %f", y, arg_val);
+			//post("arg %d: %f", y, arg_val);
 		}
 
 		else if(arg_type == A_FLOAT)
@@ -296,7 +296,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 			self->args[y][0] = arg_val;
 			self->input_vals[y] = arg_val;
 
-			post("arg %d: %f", y, arg_val);
+			//post("arg %d: %f", y, arg_val);
 		}
 
 		//symbols are used to initialize buffers!
@@ -306,7 +306,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 			t_buffer_ref* buffer_ref   = buffer_ref_new((t_object*)self, arg_val);
 			self->buffer_refs_array[y] = buffer_ref;
 
-			post("arg %d: %s", y, arg_val->s_name);
+			//post("arg %d: %s", y, arg_val->s_name);
 
 			self->buffer_names_array[y] = (char*)malloc(MAXIMUM_BUFFER_NAMES_LEN * sizeof(char));
 			strcpy(self->buffer_names_array[y], arg_val->s_name); 
@@ -440,7 +440,7 @@ t_max_err omniobj_notify(t_omniobj *x, t_symbol *s, t_symbol *msg, void *sender,
 	//This is the buffer_name that received the message
 	t_symbol* buffer_name = (t_symbol *)object_method((t_object *)sender, gensym("getname"));
 
-	post("NOTIFY: received message %s for buffer name %s", msg->s_name, buffer_name->s_name);
+	//post("NOTIFY: received message %s for buffer name %s", msg->s_name, buffer_name->s_name);
 
 	//Look for the buffer_name in the buffer array, to send the notify message to it
 	for(int i = 0; i < NUM_INS; i++)
@@ -450,13 +450,13 @@ t_max_err omniobj_notify(t_omniobj *x, t_symbol *s, t_symbol *msg, void *sender,
 
 		if(current_buffer_ref)
 		{
-			post("buffer name: %s", buffer_name->s_name);
-			post("current_buffer_name: %s", current_buffer_name);
+			//post("buffer name: %s", buffer_name->s_name);
+			//post("current_buffer_name: %s", current_buffer_name);
 			
 			//Found the buffer! Send the notification to it.
 			if(strcmp(buffer_name->s_name, current_buffer_name) == 0)
 			{
-				post("NOTIFY buffer with name %s with message %s", current_buffer_name, msg->s_name);
+				//post("NOTIFY buffer with name %s with message %s", current_buffer_name, msg->s_name);
 				return buffer_ref_notify(current_buffer_ref, s, msg, sender, data);
 			}
 		}
@@ -486,7 +486,7 @@ void set_buffer_at_inlet(t_omniobj* self, long inlet, t_symbol* name)
 	t_buffer_ref* buffer_ref = self->buffer_refs_array[inlet];
 	if(buffer_ref)
 	{
-		post("Modifying buffer: %p", (void*)buffer_ref);
+		//post("Modifying buffer: %p", (void*)buffer_ref);
 		
 		//Change reference
 		buffer_ref_set(buffer_ref, name);
@@ -504,7 +504,7 @@ void set_buffer_at_inlet(t_omniobj* self, long inlet, t_symbol* name)
 		self->buffer_names_array[inlet] = (char*)malloc(MAXIMUM_BUFFER_NAMES_LEN * sizeof(char));
 		strcpy(self->buffer_names_array[inlet], name->s_name); 
 		
-		post("Initialized buffer: %p", (void*)buffer_ref);
+		//post("Initialized buffer: %p", (void*)buffer_ref);
 	}
 
 	//long buffer_channels = buffer_getchannelcount(buffer_ref_getobject(buffer_ref));
@@ -531,7 +531,7 @@ void omniobj_receive_message_any_inlet_defer(t_omniobj* self, t_symbol* s, long 
 			{	
 				t_symbol* arg_sym = atom_getsym(argv);
 				const char* arg_char = arg_sym->s_name;
-				post("Set message at inlet %d: %s", in, arg_char);
+				//post("Set message at inlet %d: %s", in, arg_char);
 				set_buffer_at_inlet(self, in, arg_sym);
 			}
 		}
@@ -568,7 +568,7 @@ void omniobj_receive_message_any_inlet_defer(t_omniobj* self, t_symbol* s, long 
 							if(self->input_vals)
 								self->input_vals[i] = arg2_double; 
 
-							post("Set %s %f", arg1_char, arg2_double);
+							//post("Set %s %f", arg1_char, arg2_double);
 							break;
 						}
 					}
@@ -587,7 +587,7 @@ void omniobj_receive_message_any_inlet_defer(t_omniobj* self, t_symbol* s, long 
 						if(strcmp(arg1_char, input_name_str) == 0)
 						{
 							set_buffer_at_inlet(self, i, arg2_sym);
-							post("Set %s %s", arg1_char, arg2_sym->s_name);
+							//post("Set %s %s", arg1_char, arg2_sym->s_name);
 							break;
 						}
 					}
@@ -599,7 +599,7 @@ void omniobj_receive_message_any_inlet_defer(t_omniobj* self, t_symbol* s, long 
 	//Symbol is the message: "bufferName"
 	else
 	{
-		post("Direct symbol message at inlet %d: %s", in, message);
+		//post("Direct symbol message at inlet %d: %s", in, message);
 		set_buffer_at_inlet(self, in, s);
 	}
 }

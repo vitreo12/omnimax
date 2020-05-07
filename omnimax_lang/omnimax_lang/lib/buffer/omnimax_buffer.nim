@@ -48,15 +48,19 @@ type
         buffer_obj  : pointer                      #pointer to t_buffer_obj
         buffer_data : ptr UncheckedArray[float32]  #actual float* data
         input_num*  : int                          #need to export it in order to be retrieved with the ins_Nim[buffer.input_num][0] syntax for get_buffer.
-        length      : int
-        size        : int
-        chans       : int
-        samplerate  : float
+        length*     : int
+        size*       : int
+        chans*      : int
+        samplerate* : float
 
     Buffer* = ptr Buffer_obj
 
 #Init buffer
-proc struct_init_inner*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer, ugen_auto_mem : ptr OmniAutoMem) : Buffer {.inline.} =
+proc struct_init_inner*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer, ugen_auto_mem : ptr OmniAutoMem, ugen_call_type : typedesc[CallType] = InitCall) : Buffer {.inline.} =
+    #Trying to allocate in perform block! nonono
+    when ugen_call_type is PerformCall:
+        {.fatal: "attempting to allocate memory in the `perform` or `sample` blocks for `struct Buffer`".}
+
     #Just allocate the object. All max related init are done in get_buffer
     result = cast[Buffer](omni_alloc(culong(sizeof(Buffer_obj))))
 
@@ -104,7 +108,7 @@ macro checkInputNum*(input_num_typed : typed, omni_inputs_typed : typed) : untyp
 #Template which also uses the const omni_inputs, which belongs to the omni dsp new module. It will string substitute Buffer.init(1) with initInner(Buffer, 1, omni_inputs, ugen.buffer_interface_let)
 template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
     checkInputNum(input_num, omni_inputs)
-    struct_init_inner(Buffer, input_num, buffer_interface, ugen_auto_mem) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
+    struct_init_inner(Buffer, input_num, buffer_interface, ugen_auto_mem, ugen_call_type) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 #Register child so that it will be picked up in perform to run get_buffer / unlock_buffer
 proc checkValidity*(obj : Buffer, ugen_auto_buffer : ptr OmniAutoMem) : bool =
@@ -239,16 +243,16 @@ proc len*(buffer : Buffer) : int {.inline.} =
     return buffer.length
 
 #Returns total size (frames * channels)
-proc size*(buffer : Buffer) : int {.inline.} =
-    return buffer.size
+#proc size*(buffer : Buffer) : int {.inline.} =
+#    return buffer.size
 
 #Number of channels
-proc chans*(buffer : Buffer) : int {.inline.} =
-    return buffer.chans
+#proc chans*(buffer : Buffer) : int {.inline.} =
+#    return buffer.chans
 
 #Samplerate (float64)
-proc samplerate*(buffer : Buffer) : float {.inline.} =
-    return buffer.samplerate
+#proc samplerate*(buffer : Buffer) : float {.inline.} =
+#    return buffer.samplerate
 
 #Sampledur (Float64)
 #proc sampledur*(buffer : Buffer) : float =
