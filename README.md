@@ -40,22 +40,14 @@ After `scoop` has been installed, run the following command in `PowerShell` to i
 
 ## **Installation**
 
-First, install `omni`:
+To install `omnimax`, simply use the `nimble` package manager (it comes bundled with the `nim` installation).The command will also take care of installing `omni`:
 
-    git clone https://github.com/vitreo12/omni
-
-    cd omni
-        
-    nimble installOmni
-
-Then, install `omnimax`:
-
-    git clone --recursive https://github.com/vitreo12/omnimax
-    
-    cd omnimax
-    
-    nimble installOmniMax
+    nimble install omnimax
 
 ## **Usage**
 
-    omnimax ~/.nimble/pkgs/omni-0.1.0/examples/OmniSaw.omni                                                                                      
+    omnimax ~/.nimble/pkgs/omni-0.1.0/examples/OmniSaw.omni                                                  
+
+## **Website / Docs**
+
+Check omni's [website](https://vitreo12.github.io/omni).
