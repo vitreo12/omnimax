@@ -258,7 +258,8 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 		double* arg_ptr = (double*)malloc(sizeof(double));
 		self->args[i]   = arg_ptr;
 
-		//Initialize with default values'array
+		//Initialize both the args AND the input_vals with default values' array
+		self->args[i][0]    = default_vals[i];
 		self->input_vals[i] = default_vals[i];
 		
 		//Unchecked inlets (yet). Will be checked at the start of dsp function.
