@@ -64,6 +64,8 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         omniFileName = omniFile.name
         omniFileExt  = omniFile.ext
 
+    let originalOmniFileName = omniFileName
+
     #Check file first charcter, must be a capital letter
     if not omniFileName[0].isUpperAscii:
         omniFileName[0] = omniFileName[0].toUpperAscii()
@@ -129,7 +131,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
 
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedOmniCompilation > 0:
-        printError("Unsuccessful compilation of " & $omniFileName & $omniFileExt & ".")
+        printError("Unsuccessful compilation of " & $originalOmniFileName & $omniFileExt & ".")
         return 1
     
     # ================ #
