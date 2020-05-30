@@ -42,7 +42,7 @@ proc get_samplerate_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.
 #proc get_sampledur_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.}
 
 type
-    Buffer_obj* = object
+    Buffer_struct_inner* = object
         max_object  : pointer                      #pointer to max's t_object
         buffer_ref  : pointer                      #pointer to t_buffer_ref
         buffer_obj  : pointer                      #pointer to t_buffer_obj
@@ -53,16 +53,16 @@ type
         chans*      : int
         samplerate* : float
 
-    Buffer* = ptr Buffer_obj
+    Buffer* = ptr Buffer_struct_inner
 
 #Init buffer
-proc struct_init_inner*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer, ugen_auto_mem : ptr OmniAutoMem, ugen_call_type : typedesc[CallType] = InitCall) : Buffer {.inline.} =
+proc struct_new_inner*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer, ugen_auto_mem : ptr OmniAutoMem, ugen_call_type : typedesc[CallType] = InitCall) : Buffer {.inline.} =
     #Trying to allocate in perform block! nonono
     when ugen_call_type is PerformCall:
         {.fatal: "attempting to allocate memory in the `perform` or `sample` blocks for `struct Buffer`".}
 
     #Just allocate the object. All max related init are done in get_buffer
-    result = cast[Buffer](omni_alloc(culong(sizeof(Buffer_obj))))
+    result = cast[Buffer](omni_alloc(culong(sizeof(Buffer_struct_inner))))
 
     #Register this Buffer's memory to the ugen_auto_mem
     ugen_auto_mem.registerChild(result)
@@ -105,10 +105,14 @@ macro checkInputNum*(input_num_typed : typed, omni_inputs_typed : typed) : untyp
     elif input_num < 1:
         error("Buffer: \"input_num\"" & $input_num & " is out of bounds: minimum input number is 1")
 
+template struct_new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
+    checkInputNum(input_num, omni_inputs)
+    struct_new_inner(Buffer, input_num, buffer_interface, ugen_auto_mem, ugen_call_type) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
+
 #Template which also uses the const omni_inputs, which belongs to the omni dsp new module. It will string substitute Buffer.init(1) with initInner(Buffer, 1, omni_inputs, ugen.buffer_interface_let)
 template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
     checkInputNum(input_num, omni_inputs)
-    struct_init_inner(Buffer, input_num, buffer_interface, ugen_auto_mem, ugen_call_type) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
+    struct_new_inner(Buffer, input_num, buffer_interface, ugen_auto_mem, ugen_call_type) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 #Register child so that it will be picked up in perform to run get_buffer / unlock_buffer
 proc checkValidity*(obj : Buffer, ugen_auto_buffer : ptr OmniAutoMem) : bool =
