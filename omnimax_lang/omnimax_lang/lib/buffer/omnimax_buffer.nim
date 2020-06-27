@@ -159,7 +159,7 @@ proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
 # GETTER #
 ##########
 
-proc getter(buffer : Buffer, channel : int = 0, index : int = 0) : float {.inline.} =
+proc getter_inner*(buffer : Buffer, channel : int = 0, index : int = 0) : float {.inline.} =
     let chans = buffer.chans
     
     var actual_index : int
@@ -175,15 +175,19 @@ proc getter(buffer : Buffer, channel : int = 0, index : int = 0) : float {.inlin
     return float(0.0)
 
 #1 channel
-proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float {.inline.} =
-    return a.getter(0, int(i))
+template `[]`*[I : SomeNumber](a : Buffer, i : I) : untyped {.dirty.} =
+    when ugen_call_type is not PerformCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+    getter_inner(a, 0, int(i))
 
 #more than 1 channel (i1 == channel, i2 == index)
-proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : float {.inline.} =
-    return a.getter(int(i1), int(i2))
+template `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : untyped {.dirty.} =
+    when ugen_call_type is not PerformCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+    getter_inner(a, int(i1), int(i2))
 
 #linear interp read (1 channel)
-proc read*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
+proc read_inner*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
     let buf_len = buffer.length
     
     if buf_len <= 0:
@@ -198,7 +202,7 @@ proc read*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
     return float(linear_interp(frac, buffer.getter(0, index1), buffer.getter(0, index2)))
 
 #linear interp read (more than 1 channel) (i1 == channel, i2 == index)
-proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : float {.inline.} =
+proc read_inner*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : float {.inline.} =
     let buf_len = buffer.length
 
     if buf_len <= 0:
@@ -213,11 +217,21 @@ proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index :
     
     return float(linear_interp(frac, buffer.getter(chan_int, index1), buffer.getter(chan_int, index2)))
 
+template read*[I : SomeNumber](buffer : Buffer, index : I) : untyped {.dirty.} =
+    when ugen_call_type is not PerformCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+    read_inner(buffer, index)
+
+template read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : untyped {.dirty.} =
+    when ugen_call_type is not PerformCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+    read_inner(buffer, chan, index)
+
 ##########
 # SETTER #
 ##########
 
-proc setter[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0, x : Y) : void {.inline.} =
+proc setter_inner*[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0, x : Y) : void {.inline.} =
     let chans = buffer.chans
     
     var actual_index : int
@@ -231,12 +245,16 @@ proc setter[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0,
         buffer.buffer_data[actual_index] = float32(x)
 
 #1 channel
-proc `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : void {.inline.} =
-    a.setter(0, int(i), x)
+template `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : untyped {.dirty.} =
+    when ugen_call_type is not PerformCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+    setter_inner(a, 0, int(i), x)
 
 #more than 1 channel (i1 == channel, i2 == index)
-proc `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : void {.inline.} =
-    a.setter(int(i1), int(i2), x)
+template `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : untyped {.dirty.} =
+    when ugen_call_type is not PerformCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+    setter_inner(a, int(i1), int(i2), x)
 
 #########
 # INFOS #
