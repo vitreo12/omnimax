@@ -151,7 +151,7 @@ proc get_buffer*(buffer : Buffer, input_val : float) : bool {.inline.} =
     return true
 
 proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
-    #This check is needed as buffers could be unlocked when another one has been failed to acquire!
+    #This check is needed as buffers could be unlocked when another one has failed to acquire!
     if not isNil(buffer.buffer_obj):
         unlock_buffer_Max(buffer.buffer_obj)
 
