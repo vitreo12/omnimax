@@ -159,7 +159,10 @@ proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
 # GETTER #
 ##########
 
-proc getter*(buffer : Buffer, channel : int = 0, index : int = 0) : float {.inline.} =
+proc getter*(buffer : Buffer, channel : int = 0, index : int = 0, ugen_call_type : typedesc[CallType] = InitCall) : float {.inline.} =
+    when ugen_call_type is InitCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+
     let chans = buffer.chans
     
     var actual_index : int
@@ -176,18 +179,17 @@ proc getter*(buffer : Buffer, channel : int = 0, index : int = 0) : float {.inli
 
 #1 channel
 template `[]`*[I : SomeNumber](a : Buffer, i : I) : untyped {.dirty.} =
-    when ugen_call_type is not PerformCall:
-        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
-    getter(a, 0, int(i))
+    getter(a, 0, int(i), ugen_call_type)
 
 #more than 1 channel (i1 == channel, i2 == index)
 template `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : untyped {.dirty.} =
-    when ugen_call_type is not PerformCall:
-        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
-    getter(a, int(i1), int(i2))
+    getter(a, int(i1), int(i2), ugen_call_type)
 
 #linear interp read (1 channel)
-proc read_inner*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
+proc read_inner*[I : SomeNumber](buffer : Buffer, index : I, ugen_call_type : typedesc[CallType] = InitCall) : float {.inline.} =
+    when ugen_call_type is InitCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+
     let buf_len = buffer.length
     
     if buf_len <= 0:
@@ -199,10 +201,13 @@ proc read_inner*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} 
         index2 : int = (index1 + 1) mod buf_len
         frac : float  = float(index) - float(index_int)
     
-    return float(linear_interp(frac, getter(buffer, 0, index1), getter(buffer, 0, index2)))
+    return float(linear_interp(frac, getter(buffer, 0, index1, ugen_call_type), getter(buffer, 0, index2, ugen_call_type)))
 
 #linear interp read (more than 1 channel) (i1 == channel, i2 == index)
-proc read_inner*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : float {.inline.} =
+proc read_inner*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2, ugen_call_type : typedesc[CallType] = InitCall) : float {.inline.} =
+    when ugen_call_type is InitCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+
     let buf_len = buffer.length
 
     if buf_len <= 0:
@@ -215,23 +220,22 @@ proc read_inner*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, i
         index2 : int = (index1 + 1) mod buf_len
         frac : float  = float(index) - float(index_int)
     
-    return float(linear_interp(frac, getter(buffer, chan_int, index1), getter(buffer, chan_int, index2)))
+    return float(linear_interp(frac, getter(buffer, chan_int, index1, ugen_call_type), getter(buffer, chan_int, index2, ugen_call_type)))
 
 template read*[I : SomeNumber](buffer : Buffer, index : I) : untyped {.dirty.} =
-    when ugen_call_type is not PerformCall:
-        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
-    read_inner(buffer, index)
+    read_inner(buffer, index, ugen_call_type)
 
 template read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : untyped {.dirty.} =
-    when ugen_call_type is not PerformCall:
-        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
-    read_inner(buffer, chan, index)
+    read_inner(buffer, chan, index, ugen_call_type)
 
 ##########
 # SETTER #
 ##########
 
-proc setter*[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0, x : Y) : void {.inline.} =
+proc setter*[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0, x : Y, ugen_call_type : typedesc[CallType] = InitCall) : void {.inline.} =
+    when ugen_call_type is InitCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+
     let chans = buffer.chans
     
     var actual_index : int
@@ -246,15 +250,11 @@ proc setter*[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0
 
 #1 channel
 template `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : untyped {.dirty.} =
-    when ugen_call_type is not PerformCall:
-        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
-    setter(a, 0, int(i), x)
+    setter(a, 0, int(i), x, ugen_call_type)
 
 #more than 1 channel (i1 == channel, i2 == index)
 template `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : untyped {.dirty.} =
-    when ugen_call_type is not PerformCall:
-        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
-    setter(a, int(i1), int(i2), x)
+    setter(a, int(i1), int(i2), x, ugen_call_type)
 
 #########
 # INFOS #
