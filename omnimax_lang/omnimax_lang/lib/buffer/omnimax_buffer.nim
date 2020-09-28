@@ -22,8 +22,6 @@
 
 #[ All these functions are defined in the Max object cpp file ]#
 
-import macros
-
 #Retrieve buffer_ref*, or initialize one with random name
 proc init_buffer_at_inlet(max_object : pointer, inlet : cint) : pointer {.importc, cdecl.}
 
@@ -55,8 +53,10 @@ type
 
     Buffer* = ptr Buffer_struct_inner
 
+    Buffer_struct_export* = Buffer
+
 #Init buffer
-proc struct_new_inner*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer, ugen_auto_mem : ptr OmniAutoMem, ugen_call_type : typedesc[CallType] = InitCall) : Buffer {.inline.} =
+proc Buffer_struct_new_inner*[S : SomeInteger](input_num : S, buffer_interface : pointer, obj_type : typedesc[Buffer_struct_export], ugen_auto_mem : ptr OmniAutoMem, ugen_call_type : typedesc[CallType] = InitCall) : Buffer {.inline.} =
     #Trying to allocate in perform block! nonono
     when ugen_call_type is PerformCall:
         {.fatal: "attempting to allocate memory in the `perform` or `sample` blocks for `struct Buffer`".}
@@ -86,33 +86,6 @@ proc struct_new_inner*[S : SomeInteger](obj_type : typedesc[Buffer], input_num :
     #If failed, set input num to 0 (which will then be picked by get_buffer(buffer, ins[0][0])). Minimum num of inputs in omni is 1 anyway (for now...)
     if isNil(result.buffer_ref):
         result.input_num = 0
-
-#compile time check of input_num
-macro checkInputNum*(input_num_typed : typed, omni_inputs_typed : typed) : untyped =
-    let input_num_typed_kind = input_num_typed.kind
-    
-    if input_num_typed_kind != nnkIntLit:
-        error("Buffer input_num must be expressed as an integer literal value")
-    
-    let 
-        input_num = input_num_typed.intVal()
-        omni_inputs = omni_inputs_typed.intVal()
-
-    #If these checks fail set to sc_world to nil, which will invalidate the Buffer.
-    #result.input_num is needed for get_buffer(buffer, ins[0][0), as 1 is the minimum number for ins, for now...
-    if input_num > omni_inputs: 
-        error("Buffer: \"input_num\"" & $input_num & " is out of bounds: maximum number of inputs: " & $omni_inputs)
-    elif input_num < 1:
-        error("Buffer: \"input_num\"" & $input_num & " is out of bounds: minimum input number is 1")
-
-template struct_new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
-    checkInputNum(input_num, omni_inputs)
-    struct_new_inner(Buffer, input_num, buffer_interface, ugen_auto_mem, ugen_call_type) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
-
-#Template which also uses the const omni_inputs, which belongs to the omni dsp new module. It will string substitute Buffer.init(1) with initInner(Buffer, 1, omni_inputs, ugen.buffer_interface_let)
-template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
-    checkInputNum(input_num, omni_inputs)
-    struct_new_inner(Buffer, input_num, buffer_interface, ugen_auto_mem, ugen_call_type) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 #Register child so that it will be picked up in perform to run get_buffer / unlock_buffer
 proc checkValidity*(obj : Buffer, ugen_auto_buffer : ptr OmniAutoMem) : bool =
