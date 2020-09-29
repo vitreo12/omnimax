@@ -1,4 +1,7 @@
+.vscode/
+
+*.so
+
+omnimax
 
 *.exe
-
-.vscode/
