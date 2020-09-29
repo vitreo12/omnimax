@@ -22,8 +22,6 @@
 
 #[ All these functions are defined in the Max object cpp file ]#
 
-import macros
-
 #Retrieve buffer_ref*, or initialize one with random name
 proc init_buffer_at_inlet(max_object : pointer, inlet : cint) : pointer {.importc, cdecl.}
 
@@ -55,8 +53,10 @@ type
 
     Buffer* = ptr Buffer_struct_inner
 
+    Buffer_struct_export* = Buffer
+
 #Init buffer
-proc struct_new_inner*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S, buffer_interface : pointer, ugen_auto_mem : ptr OmniAutoMem, ugen_call_type : typedesc[CallType] = InitCall) : Buffer {.inline.} =
+proc Buffer_struct_new_inner*[S : SomeInteger](input_num : S, buffer_interface : pointer, obj_type : typedesc[Buffer_struct_export], ugen_auto_mem : ptr OmniAutoMem, ugen_call_type : typedesc[CallType] = InitCall) : Buffer {.inline.} =
     #Trying to allocate in perform block! nonono
     when ugen_call_type is PerformCall:
         {.fatal: "attempting to allocate memory in the `perform` or `sample` blocks for `struct Buffer`".}
@@ -86,33 +86,6 @@ proc struct_new_inner*[S : SomeInteger](obj_type : typedesc[Buffer], input_num :
     #If failed, set input num to 0 (which will then be picked by get_buffer(buffer, ins[0][0])). Minimum num of inputs in omni is 1 anyway (for now...)
     if isNil(result.buffer_ref):
         result.input_num = 0
-
-#compile time check of input_num
-macro checkInputNum*(input_num_typed : typed, omni_inputs_typed : typed) : untyped =
-    let input_num_typed_kind = input_num_typed.kind
-    
-    if input_num_typed_kind != nnkIntLit:
-        error("Buffer input_num must be expressed as an integer literal value")
-    
-    let 
-        input_num = input_num_typed.intVal()
-        omni_inputs = omni_inputs_typed.intVal()
-
-    #If these checks fail set to sc_world to nil, which will invalidate the Buffer.
-    #result.input_num is needed for get_buffer(buffer, ins[0][0), as 1 is the minimum number for ins, for now...
-    if input_num > omni_inputs: 
-        error("Buffer: \"input_num\"" & $input_num & " is out of bounds: maximum number of inputs: " & $omni_inputs)
-    elif input_num < 1:
-        error("Buffer: \"input_num\"" & $input_num & " is out of bounds: minimum input number is 1")
-
-template struct_new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
-    checkInputNum(input_num, omni_inputs)
-    struct_new_inner(Buffer, input_num, buffer_interface, ugen_auto_mem, ugen_call_type) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
-
-#Template which also uses the const omni_inputs, which belongs to the omni dsp new module. It will string substitute Buffer.init(1) with initInner(Buffer, 1, omni_inputs, ugen.buffer_interface_let)
-template new*[S : SomeInteger](obj_type : typedesc[Buffer], input_num : S) : untyped =
-    checkInputNum(input_num, omni_inputs)
-    struct_new_inner(Buffer, input_num, buffer_interface, ugen_auto_mem, ugen_call_type) #omni_inputs AND buffer_interface belong to the scope of the dsp module and the body of the init function
 
 #Register child so that it will be picked up in perform to run get_buffer / unlock_buffer
 proc checkValidity*(obj : Buffer, ugen_auto_buffer : ptr OmniAutoMem) : bool =
@@ -151,7 +124,7 @@ proc get_buffer*(buffer : Buffer, input_val : float) : bool {.inline.} =
     return true
 
 proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
-    #This check is needed as buffers could be unlocked when another one has been failed to acquire!
+    #This check is needed as buffers could be unlocked when another one has failed to acquire!
     if not isNil(buffer.buffer_obj):
         unlock_buffer_Max(buffer.buffer_obj)
 
@@ -159,7 +132,10 @@ proc unlock_buffer*(buffer : Buffer) : void {.inline.} =
 # GETTER #
 ##########
 
-proc getter(buffer : Buffer, channel : int = 0, index : int = 0) : float {.inline.} =
+proc getter*(buffer : Buffer, channel : int = 0, index : int = 0, ugen_call_type : typedesc[CallType] = InitCall) : float {.inline.} =
+    when ugen_call_type is InitCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+
     let chans = buffer.chans
     
     var actual_index : int
@@ -175,15 +151,18 @@ proc getter(buffer : Buffer, channel : int = 0, index : int = 0) : float {.inlin
     return float(0.0)
 
 #1 channel
-proc `[]`*[I : SomeNumber](a : Buffer, i : I) : float {.inline.} =
-    return a.getter(0, int(i))
+template `[]`*[I : SomeNumber](a : Buffer, i : I) : untyped {.dirty.} =
+    getter(a, 0, int(i), ugen_call_type)
 
 #more than 1 channel (i1 == channel, i2 == index)
-proc `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : float {.inline.} =
-    return a.getter(int(i1), int(i2))
+template `[]`*[I1 : SomeNumber, I2 : SomeNumber](a : Buffer, i1 : I1, i2 : I2) : untyped {.dirty.} =
+    getter(a, int(i1), int(i2), ugen_call_type)
 
 #linear interp read (1 channel)
-proc read*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
+proc read_inner*[I : SomeNumber](buffer : Buffer, index : I, ugen_call_type : typedesc[CallType] = InitCall) : float {.inline.} =
+    when ugen_call_type is InitCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+
     let buf_len = buffer.length
     
     if buf_len <= 0:
@@ -195,10 +174,13 @@ proc read*[I : SomeNumber](buffer : Buffer, index : I) : float {.inline.} =
         index2 : int = (index1 + 1) mod buf_len
         frac : float  = float(index) - float(index_int)
     
-    return float(linear_interp(frac, buffer.getter(0, index1), buffer.getter(0, index2)))
+    return float(linear_interp(frac, getter(buffer, 0, index1, ugen_call_type), getter(buffer, 0, index2, ugen_call_type)))
 
 #linear interp read (more than 1 channel) (i1 == channel, i2 == index)
-proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : float {.inline.} =
+proc read_inner*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2, ugen_call_type : typedesc[CallType] = InitCall) : float {.inline.} =
+    when ugen_call_type is InitCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+
     let buf_len = buffer.length
 
     if buf_len <= 0:
@@ -211,13 +193,22 @@ proc read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index :
         index2 : int = (index1 + 1) mod buf_len
         frac : float  = float(index) - float(index_int)
     
-    return float(linear_interp(frac, buffer.getter(chan_int, index1), buffer.getter(chan_int, index2)))
+    return float(linear_interp(frac, getter(buffer, chan_int, index1, ugen_call_type), getter(buffer, chan_int, index2, ugen_call_type)))
+
+template read*[I : SomeNumber](buffer : Buffer, index : I) : untyped {.dirty.} =
+    read_inner(buffer, index, ugen_call_type)
+
+template read*[I1 : SomeNumber, I2 : SomeNumber](buffer : Buffer, chan : I1, index : I2) : untyped {.dirty.} =
+    read_inner(buffer, chan, index, ugen_call_type)
 
 ##########
 # SETTER #
 ##########
 
-proc setter[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0, x : Y) : void {.inline.} =
+proc setter*[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0, x : Y, ugen_call_type : typedesc[CallType] = InitCall) : void {.inline.} =
+    when ugen_call_type is InitCall:
+        {.fatal: "`Buffers` can only be accessed in the `perform` / `sample` blocks".}
+
     let chans = buffer.chans
     
     var actual_index : int
@@ -231,12 +222,12 @@ proc setter[Y : SomeNumber](buffer : Buffer, channel : int = 0, index : int = 0,
         buffer.buffer_data[actual_index] = float32(x)
 
 #1 channel
-proc `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : void {.inline.} =
-    a.setter(0, int(i), x)
+template `[]=`*[I : SomeNumber, S : SomeNumber](a : Buffer, i : I, x : S) : untyped {.dirty.} =
+    setter(a, 0, int(i), x, ugen_call_type)
 
 #more than 1 channel (i1 == channel, i2 == index)
-proc `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : void {.inline.} =
-    a.setter(int(i1), int(i2), x)
+template `[]=`*[I1 : SomeNumber, I2 : SomeNumber, S : SomeNumber](a : Buffer, i1 : I1, i2 : I2, x : S) : untyped {.dirty.} =
+    setter(a, int(i1), int(i2), x, ugen_call_type)
 
 #########
 # INFOS #
