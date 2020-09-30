@@ -274,6 +274,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     when not(defined(Windows)):
         let 
             compilation_cmd = "make"
+            #compilation_cmd = "cmake --build . --config Release"
             failedCompilation = execCmd(compilation_cmd)
     else:
         let 
