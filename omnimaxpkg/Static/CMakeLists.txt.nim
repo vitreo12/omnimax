@@ -49,18 +49,23 @@ include_directories(${OMNI_BUILD_DIR})
 if(NOT MSVC)
 	#Override MSVC release flags (set at the beginning of pretarget)
 	if(WIN32)
-		set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG -march=${BUILD_MARCH} -mtune=${BUILD_MARCH}")
-		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=${BUILD_MARCH} -mtune=${BUILD_MARCH}")
+		set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG -march=${BUILD_MARCH}")
+		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=${BUILD_MARCH}")
 	else()
-		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -O3 -DNDEBUG -march=${BUILD_MARCH} -mtune=${BUILD_MARCH}")
-		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -march=${BUILD_MARCH} -mtune=${BUILD_MARCH}")
+		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -O3 -DNDEBUG -march=${BUILD_MARCH}")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -march=${BUILD_MARCH}")
 	endif()
-
-	message(STATUS "RELEASE FLAGS: ${CMAKE_CXX_FLAGS_RELEASE}")
 
 	#Build architecture.. I should get rid of this next bit, or remove it from the flags
 	message(STATUS "BUILD ARCHITECTURE : ${BUILD_MARCH}")
-	add_definitions(-march=${BUILD_MARCH} -mtune=${BUILD_MARCH})
+	add_definitions(-march=${BUILD_MARCH})
+
+	#If native, also add mtune=native
+	if (BUILD_MARCH STREQUAL "native")
+		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE} -mtune=native")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -mtune=native")
+		add_definitions(-mtune=native)
+	endif()
 endif()
 
 #Actual shared library to compile
@@ -80,7 +85,6 @@ if(MSVC)
 
 #Clang (MacOS) / MinGW (Windows)
 else()
-
 	if(WIN32)
 		#Fix c++14 bug with windows' MinGW not finding the /wd4814 folder... this flag was set in max-posttarget.cmake
 		set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "")
