@@ -132,6 +132,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedOmniCompilation > 0:
         printError("Unsuccessful compilation of " & $originalOmniFileName & $omniFileExt & ".")
+        removeDir(fullPathToNewFolder)
         return 1
     
     # ================ #
@@ -145,6 +146,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
 
     if io_file_seq.len != 5:
         printError("Invalid IO.txt file.")
+        removeDir(fullPathToNewFolder)
         return 1
     
     let 
@@ -268,6 +270,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedCmake > 0:
         printError("Unsuccessful cmake generation of the object file \"" & $omni_max_object_name_tilde & ".cpp\".")
+        removeDir(fullPathToNewFolder)
         return 1
     
     #make command
@@ -284,6 +287,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
 
     if failedCompilation > 0:
         printError("Unsuccessful compilation the object file \"" & $omni_max_object_name_tilde & ".cpp\".")
+        removeDir(fullPathToNewFolder)
         return 1
     
     let 
