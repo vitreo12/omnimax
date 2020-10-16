@@ -78,14 +78,14 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     let expanded_max_path = maxPath.normalizedPath().expandTilde().absolutePath()
 
     #Check maxPath
-    if not expanded_max_path.existsDir():
+    if not expanded_max_path.dirExists():
         printError("maxPath: " & $expanded_max_path & " does not exist.")
         return 1
     
     let expanded_out_dir = outDir.normalizedPath().expandTilde().absolutePath()
 
     #Check outDir
-    if not expanded_out_dir.existsDir():
+    if not expanded_out_dir.dirExists():
         printError("outDir: " & $expanded_out_dir & " does not exist.")
         return 1
     
@@ -390,12 +390,12 @@ proc omnimax(omniFiles : seq[string], mc : bool = true, architecture : string = 
         let omniFileFullPath = omniFile.normalizedPath().expandTilde().absolutePath()
 
         #If it's a file, compile it
-        if omniFileFullPath.existsFile():
+        if omniFileFullPath.fileExists():
             if omnimax_single_file(omniFileFullPath, mc, architecture, outDir, maxPath, removeBuildFiles) > 0:
                 return 1
 
         #If it's a dir, compile all .omni/.oi files in it
-        elif omniFileFullPath.existsDir():
+        elif omniFileFullPath.dirExists():
             for kind, dirFile in walkDir(omniFileFullPath):
                 if kind == pcFile:
                     let 
