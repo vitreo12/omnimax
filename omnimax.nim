@@ -418,7 +418,7 @@ proc omnimax(files : seq[string], mc : bool = true, architecture : string = "nat
     return 0
 
 #Workaround to pass custom version
-clCfg.version = "OmniMax - version " & $omnimax_ver
+clCfg.version = "OmniMax - version " & $omnimax_ver & "\n(c) 2020 Francesco Cameli "
 
 #Dispatch the omnimax function as the CLI one
 dispatch(omnimax, 
