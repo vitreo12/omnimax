@@ -384,8 +384,8 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
 
     return 0
 
-proc omnimax(omniFiles : seq[string], mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
-    for omniFile in omniFiles:
+proc omnimax(files : seq[string], mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
+    for omniFile in files:
         #Get full extended path
         let omniFileFullPath = omniFile.normalizedPath().expandTilde().absolutePath()
 
@@ -410,11 +410,20 @@ proc omnimax(omniFiles : seq[string], mc : bool = true, architecture : string = 
             printError($omniFileFullPath & " does not exist.")
             return 1
     
+    #no files provided
+    if files.len == 0:
+        printError("No Omni files to compile provided.")
+        return 1
+
     return 0
+
+#Workaround to pass custom version
+clCfg.version = "OmniMax - version " & $omnimax_ver & "\n(c) 2020 Francesco Cameli "
 
 #Dispatch the omnimax function as the CLI one
 dispatch(omnimax, 
     short={
+        "version" : 'v',
         "mc" : 'm',
         "maxPath" : 'p'
     }, 
