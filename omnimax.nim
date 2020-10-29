@@ -30,6 +30,9 @@ const
     NimblePkgVersion {.strdefine.} = ""
     omnimax_ver = NimblePkgVersion
 
+#-v / --version
+let version_flag = "OmniMax - version " & $omnimax_ver & "\n(c) 2020 Francesco Cameli"
+
 #Default to the omni nimble folder, which should have it installed if omni has been installed correctly
 const default_max_api_path = "~/.nimble/pkgs/omnimax-" & omnimax_ver & "/omnimaxpkg/deps/max-api"
 
@@ -385,6 +388,11 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     return 0
 
 proc omnimax(files : seq[string], mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
+    #no files provided, print --version
+    if files.len == 0:
+        echo version_flag
+        return 0
+
     for omniFile in files:
         #Get full extended path
         let omniFileFullPath = omniFile.normalizedPath().expandTilde().absolutePath()
@@ -409,16 +417,11 @@ proc omnimax(files : seq[string], mc : bool = true, architecture : string = "nat
         else:
             printError($omniFileFullPath & " does not exist.")
             return 1
-    
-    #no files provided
-    if files.len == 0:
-        printError("No Omni files to compile provided.")
-        return 1
 
     return 0
 
 #Workaround to pass custom version
-clCfg.version = "OmniMax - version " & $omnimax_ver & "\n(c) 2020 Francesco Cameli "
+clCfg.version = version_flag
 
 #Dispatch the omnimax function as the CLI one
 dispatch(omnimax, 
