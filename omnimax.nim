@@ -124,7 +124,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     # ================ #
 
     #Compile nim file. Only pass the -d:writeIO and -d:tempDir flag here, so it generates the IO.txt file.
-    let omni_command = "omni \"" & $fileFullPath & "\" -a:" & $architecture & " -i:omnimax_lang -b:64 -l:static -d:multithreadBuffers -d:writeIO -d:tempDir:\"" & $fullPathToNewFolder & "\" -o:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" --architecture:" & $architecture & " --importModule:omnimax_lang --performBits:64 --lib:static --exportIO:true -d:omni_multithread_buffers -o:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path... go figure!
     when not defined(Windows):
@@ -143,12 +143,12 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     # ================ #
     
     let 
-        fullPathToIOFile = fullPathToNewFolder & "/IO.txt"
+        fullPathToIOFile = fullPathToNewFolder & "/omni_io.txt"
         io_file = readFile(fullPathToIOFile)
         io_file_seq = io_file.split('\n')
 
     if io_file_seq.len != 5:
-        printError("Invalid IO.txt file.")
+        printError("Invalid omni_io.txt file.")
         removeDir(fullPathToNewFolder)
         return 1
     
