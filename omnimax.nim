@@ -33,11 +33,14 @@ const
 #-v / --version
 let version_flag = "OmniMax - version " & $omnimax_ver & "\n(c) 2020 Francesco Cameli"
 
-#Default to the omni nimble folder, which should have it installed if omni has been installed correctly
+#Default to the omni nimble folder, which should have it installed if omnimax has been installed correctly
 const default_max_api_path = "~/.nimble/pkgs/omnimax-" & omnimax_ver & "/omnimaxpkg/deps/max-api"
 
 #Extension for static lib
-const static_lib_extension = ".a"
+when defined(Windows):
+    const static_lib_extension = ".lib"
+else:
+    const static_lib_extension = ".a"
 
 when defined(Windows):
     const max_object_extension = ".mxe64"
@@ -60,7 +63,6 @@ proc printDone(msg : string) : void =
     writeStyled(msg & "\n")
 
 proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
-
     var 
         omniFile     = splitFile(fileFullPath)
         omniFileDir  = omniFile.dir
@@ -124,13 +126,13 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     # ================ #
 
     #Compile nim file. Only pass the -d:writeIO and -d:tempDir flag here, so it generates the IO.txt file.
-    let omni_command = "omni \"" & $fileFullPath & "\" --architecture:" & $architecture & " --importModule:omnimax_lang --performBits:64 --lib:static --exportIO:true -d:omni_multithread_buffers -o:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --define:omni_multithread_buffers --outDir:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path... go figure!
-    when not defined(Windows):
-        let failedOmniCompilation = execCmd(omni_command)
-    else:
+    when defined(Windows):
         let failedOmniCompilation = execShellCmd(omni_command)
+    else:
+        let failedOmniCompilation = execCmd(omni_command)
 
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedOmniCompilation > 0:
@@ -147,86 +149,68 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         io_file = readFile(fullPathToIOFile)
         io_file_seq = io_file.split('\n')
 
-    if io_file_seq.len != 5:
+    if io_file_seq.len != 11:
         printError("Invalid omni_io.txt file.")
         removeDir(fullPathToNewFolder)
         return 1
     
     let 
-        num_inputs  = parseInt(io_file_seq[0])
+        num_inputs  = parseInt(io_file_seq[0])     
         input_names_string = io_file_seq[1]
-        input_names = input_names_string.split(',') #this is a seq now
-        default_vals_string = io_file_seq[2]
-        default_vals = default_vals_string.split(',')
-        num_outputs = parseInt(io_file_seq[3])
-        output_names_string = io_file_seq[4]
-        output_names = output_names_string.split(',') #this is a seq now
+        input_names = input_names_string.split(',')
+        input_defaults_string = io_file_seq[2]
+        input_defaults = input_defaults_string.split(',')
+        num_params = parseInt(io_file_seq[3])
+        param_names_string = io_file_seq[4]
+        param_names = param_names_string.split(',')
+        param_defaults_string = io_file_seq[5]
+        param_defaults = param_defaults_string.split(',')
+        num_buffers = parseInt(io_file_seq[6])
+        buffer_names_string = io_file_seq[7]
+        buffer_names = buffer_names_string.split(',')
+        output_names_string = io_file_seq[8]
+        output_names = output_names_string.split(',')
+        num_outputs = parseInt(io_file_seq[9])
 
     # ======= #
     # SET I/O #
     # ======= #
 
     var 
-        define_obj_name    = "#define OBJ_NAME \"" & $omni_max_object_name_tilde_symbol & "\""
-        define_num_ins     = "#define NUM_INS " & $num_inputs
-        const_inlet_names  = "const std::array<std::string," & $num_inputs & "> inlet_names = { "
-        const_default_vals = "const std::array<double, " & $num_inputs & "> default_vals = { " 
-        define_num_outs    = "#define NUM_OUTS " & $num_outputs
-        const_outlet_names = "const std::array<std::string," & $num_outputs & "> outlet_names = { "
+        define_obj_name      = "#define OBJ_NAME \"" & $omni_max_object_name_tilde_symbol & "\""
+        define_num_ins       = "#define NUM_INS " & $num_inputs
+        const_inlet_names    = "const std::array<std::string," & $num_inputs & "> inlet_names = { "
+        const_input_defaults = "const std::array<double, " & $num_inputs & "> input_defaults = { " 
+        define_num_outs      = "#define NUM_OUTS " & $num_outputs
+        const_outlet_names   = "const std::array<std::string," & $num_outputs & "> outlet_names = { "
 
-    #No input names
-    if input_names[0] == "__NO_PARAM_NAMES__":
-        if num_inputs == 0:
-            const_inlet_names.add("};")
-            const_default_vals.add("};")
-        else:
-            for i in 1..num_inputs:
-                let default_val = default_vals[(i - 1)]
-                if i == num_inputs:
-                    const_inlet_names.add("\"in" & $i & "\" };")
-                    const_default_vals.add($default_val & " };")
-                else:
-                    const_inlet_names.add("\"in" & $i & "\", ")
-                    const_default_vals.add($default_val & ", ")
+    if num_inputs == 0:
+        const_inlet_names.add("};")
+        const_input_defaults.add("};")
     else:
-        if num_inputs == 0:
-            const_inlet_names.add("};")
-            const_default_vals.add("};")
-        else:
-            for index, input_name in input_names:
-                let default_val = default_vals[index]
-                if index == num_inputs - 1:
-                    const_inlet_names.add("\"" & $input_name & "\" };")
-                    const_default_vals.add($default_val & " };")
-                else:
-                    const_inlet_names.add("\"" & $input_name & "\", ")
-                    const_default_vals.add($default_val & ", ")
+        for index, input_name in input_names:
+            let default_val = input_defaults[index]
+            if index == num_inputs - 1:
+                const_inlet_names.add("\"" & $input_name & "\" };")
+                const_input_defaults.add($default_val & " };")
+            else:
+                const_inlet_names.add("\"" & $input_name & "\", ")
+                const_input_defaults.add($default_val & ", ")
 
-    #No output names
-    if output_names[0] == "__NO_PARAM_NAMES__":
-        if num_outputs == 0:
-            const_outlet_names.add("};")
-        else:
-            for i in 1..num_outputs:
-                if i == num_outputs:
-                    const_outlet_names.add("\"out" & $i & "\" };")
-                else:
-                    const_outlet_names.add("\"out" & $i & "\", ")
+    if num_outputs == 0:
+        const_outlet_names.add("};")
     else:
-        if num_outputs == 0:
-            const_outlet_names.add("};")
-        else:
-            for index, output_name in output_names:
-                if index == num_outputs - 1:
-                    const_outlet_names.add("\"" & $output_name & "\" };")
-                else:
-                    const_outlet_names.add("\"" & $output_name & "\", ")
+        for index, output_name in output_names:
+            if index == num_outputs - 1:
+                const_outlet_names.add("\"" & $output_name & "\" };")
+            else:
+                const_outlet_names.add("\"" & $output_name & "\", ")
 
     #This is the cpp file to overwrite! Need it at every iteration
     include "omnimaxpkg/Static/Omni_PROTO.cpp.nim"
     
     #Reconstruct the cpp file
-    OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & const_default_vals & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
+    OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & const_input_defaults & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
     
     # =========== #
     # WRITE FILES #
@@ -252,23 +236,22 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
 
     var cmake_cmd : string
 
-    when(not(defined(Windows))):
-        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
-    else:
+    when defined(Windows):
         #Cmake wants a path in unix style, not windows! Replace "/" with "\"
         let fullPathToNewFolder_Unix = fullPathToNewFolder.replace("\\", "/")
         let fullPathToMaxApi_Unix = expanded_max_path.replace("\\", "/")
-        
         cmake_cmd = "cmake -G \"MinGW Makefiles\" -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $fullPathToMaxApi_Unix & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
+    else:
+        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
 
     #cd into the build directory
     setCurrentDir(fullPathToNewFolder & "/build")
     
     #Execute CMake
-    when not defined(Windows):
-        let failedCmake = execCmd(cmake_cmd)
-    else:
+    when defined(Windows):
         let failedCmake = execShellCmd(cmake_cmd)
+    else:
+        let failedCmake = execCmd(cmake_cmd)
 
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedCmake > 0:
@@ -277,16 +260,16 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         return 1
     
     #make command
-    when not(defined(Windows)):
-        let 
-            compilation_cmd = "make"
-            #compilation_cmd = "cmake --build . --config Release"
-            failedCompilation = execCmd(compilation_cmd)
-    else:
+    when defined(Windows):
         let 
             compilation_cmd  = "mingw32-make"
             #compilation_cmd = "cmake --build . --config Release"
             failedCompilation = execShellCmd(compilation_cmd)
+    else:
+        let 
+            compilation_cmd = "make"
+            #compilation_cmd = "cmake --build . --config Release"
+            failedCompilation = execCmd(compilation_cmd)
 
     if failedCompilation > 0:
         printError("Unsuccessful compilation the object file \"" & $omni_max_object_name_tilde & ".cpp\".")

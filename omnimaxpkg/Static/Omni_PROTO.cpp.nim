@@ -259,8 +259,8 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 		self->args[i]   = arg_ptr;
 
 		//Initialize both the args AND the input_vals with default values' array
-		self->args[i][0]    = default_vals[i];
-		self->input_vals[i] = default_vals[i];
+		self->args[i][0]    = input_defaults[i];
+		self->input_vals[i] = input_defaults[i];
 		
 		//Unchecked inlets (yet). Will be checked at the start of dsp function.
 		self->control_rate_inlets[i] = -1;
