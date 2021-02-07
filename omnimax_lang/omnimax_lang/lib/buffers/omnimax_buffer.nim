@@ -36,12 +36,11 @@ proc unlock_buffer_Max(buffer_obj : pointer) : void      {.importc, cdecl.}
 
 #Utilities
 proc get_frames_buffer_Max(buffer_obj : pointer)     : clong   {.importc, cdecl.}
-proc get_samples_buffer_Max(buffer_obj : pointer)    : clong   {.importc, cdecl.}
 proc get_channels_buffer_Max(buffer_obj : pointer)   : clong   {.importc, cdecl.}
 proc get_samplerate_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.}
 
 omniBufferInterface:
-    debug: true
+    debug: false
 
     struct:
         max_object  : pointer                      #pointer to max's t_object
@@ -78,7 +77,7 @@ omniBufferInterface:
             return false
 
         #Set correct pointer now that it's locked
-        buffer.buffer_data = buffer_data_ptr
+        buffer.buffer_data = buffer_data
         
         return true
     
