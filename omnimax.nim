@@ -20,7 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import cligen, terminal, os, strutils, osproc
+import cligen, terminal, os, strutils
+
+when not defined(Windows):
+    import osproc
 
 #the CMakeLists doesn't need to be re-evaluated at each loop
 include "omnimaxpkg/Static/CMakeLists.txt.nim"

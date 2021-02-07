@@ -20,10 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-#Import omni_lang. This will also make it available in omnimax_buffer for omni.alloc
-import omni_lang
-export omni_lang
-
 #Import SC's Buffer module
-import omnimax_lang/lib/buffer/omnimax_buffer
+import omnimax_lang/lib/buffers/omnimax_buffer
 export omnimax_buffer
