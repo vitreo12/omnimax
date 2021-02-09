@@ -25,10 +25,13 @@ import omni_lang/core/wrapper/omni_wrapper
 #[ All these functions are defined in the Max object cpp file ]#
 
 #Retrieve buffer_ref*
-proc get_buffer_ref(max_object : pointer) : pointer {.importc, cdecl.}
+proc get_buffer_ref_Max(buffer_name : ptr cchar)    : pointer {.importc, cdecl.}
 
 #Retrive buffer_obj*
-proc get_buffer_obj(buffer_ref : pointer) : pointer {.importc, cdecl.}
+proc get_buffer_obj_Max(buffer_ref : pointer)       : pointer {.importc, cdecl.}
+
+#Set buffer_obj* to dirty
+proc set_buffer_obj_dirty_Max(buffer_obj : pointer) : void    {.importc, cdecl.}
 
 #Lock / Unlock
 proc lock_buffer_Max(buffer_obj : pointer)   : ptr float {.importc, cdecl.}
@@ -43,19 +46,17 @@ omniBufferInterface:
     debug: false
 
     struct:
-        max_object  : pointer                      #pointer to max's t_object
         buffer_ref  : pointer                      #pointer to t_buffer_ref
         buffer_obj  : pointer                      #pointer to t_buffer_obj
         buffer_data : ptr UncheckedArray[float32]  #actual float* data
 
     #(buffer_interface : pointer) -> void
     init:
-        #Assign the max object the buffer refers to
-        result.max_object = buffer_interface
+        #Max object is passed via buffer_interface
+        let max_object = buffer_interface
 
-        #Create the buffer_ref or get one if it was already created in Max from the args
-        #This will return nullptr if max_object is nil or input number is out of bounds
-        #result.buffer_ref = init_buffer_at_inlet(result.max_object, cint(real_input_num))
+        #Get buffer_ref from max
+        buffer.buffer_ref = get_buffer_ref_Max(max_object, buffer.name)
 
     #(buffer : Buffer, val : cstring) -> void
     update:
@@ -63,8 +64,13 @@ omniBufferInterface:
     
     #(buffer : Buffer) -> bool
     lock:
-        let buffer_obj = buffer.buffer_obj
+        let buffer_ref = buffer.buffer_ref
+        var buffer_obj : pointer
 
+        if not isNil(buffer_ref):
+            buffer_obj = get_buffer_obj_Max(buffer_ref)
+
+        #Invalid buffer_obj
         if isNil(buffer_obj):
             return false
 
@@ -76,14 +82,17 @@ omniBufferInterface:
         if isNil(buffer_data_ptr):
             return false
 
-        #Set correct pointer now that it's locked
+        #Set correct pointers now that it's locked
+        buffer.buffer_obj  = buffer_obj
         buffer.buffer_data = buffer_data
         
         return true
     
     #(buffer : Buffer) -> void
     unlock:
-        unlock_buffer_Max(buffer.buffer_obj)
+        let buffer_obj = buffer.buffer_obj
+        set_buffer_obj_dirty_Max(buffer_obj)
+        unlock_buffer_Max(buffer_obj)
 
     #(buffer : Buffer) -> int
     length:

@@ -129,7 +129,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     # ================ #
 
     #Compile nim file. Only pass the -d:writeIO and -d:tempDir flag here, so it generates the IO.txt file.
-    let omni_command = "omni \"" & $fileFullPath & "\" --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --define:omni_no_buffer_lock --define:omni_no_check_valid_buffers --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path... go figure!
     when defined(Windows):
