@@ -16,9 +16,9 @@ const std::array<double,1> input_defaults = {0.0};
 #define NUM_PARAMS 1
 const std::array<std::string,1> param_names = {"freq"};
 const std::array<double,1> param_defaults = {440.0};
-#define NUM_BUFFERS 0
-const std::array<std::string,0> buffer_names = {};
-const std::array<std::string,0> buffer_defaults = {};
+#define NUM_BUFFERS 1
+const std::array<std::string,1> buffer_names = {"buf"};
+const std::array<std::string,1> buffer_defaults = {"NIL"};
 #define NUM_OUTS 1
 const std::array<std::string,1> output_names = {"out1"};
 
@@ -77,15 +77,23 @@ typedef struct _omniobj
 /****************************/
 extern "C"
 {
-	/* All these function already have checked the validity 
-	of the buffer_ref AND buffer_obj pointers in omni, 
-	no need to re-check it! */
-	void* get_buffer_ref(void* max_object, char* buffer_name)
+	void* get_buffer_ref_Max(void* max_object, char* buffer_name)
 	{
+		if(!max_object)
+			return nullptr;
+		
+		for(int i = 0; i < NUM_BUFFERS; i++)
+		{
+			const char* buffer_name_entry = buffer_names[i].c_str();
+			t_buffer_ref* buf_ref = ((t_omniobj*)max_object)->buffer_refs[i];
+			if(strcmp(buffer_name_entry, buffer_name) == 0)
+				return (void*)buf_ref;
+		}
+
 		return nullptr;
 	}
 
-	void* get_buffer_obj(void* buffer_ref)
+	void* get_buffer_obj_Max(void* buffer_ref)
 	{
 		t_buffer_ref* buf_ref = (t_buffer_ref*)buffer_ref;
 		return buffer_ref_getobject(buf_ref);
@@ -100,6 +108,7 @@ extern "C"
 	void unlock_buffer_Max(void* buffer_obj)
 	{
 		t_buffer_obj* buffer = (t_buffer_obj*)buffer_obj;
+		buffer_setdirty(buffer);
 		buffer_unlocksamples(buffer);
 	}
 
@@ -127,29 +136,23 @@ extern "C"
 /* Max template functions */
 /**************************/
 void* omniobj_new(t_symbol *s, long argc, t_atom *argv);
-t_max_err omniobj_notify(t_omniobj *x, t_symbol *s, t_symbol *msg, void *sender, void *data);
 void  omniobj_free(t_omniobj *x);
-void  omniobj_float(t_omniobj *x, double f);
-void  omniobj_int(t_omniobj *x, long n);
 void  omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long index, char* string_dest);
+void  omniobj_set(t_omniobj* self, t_symbol* s, long argc, t_atom* argv);
 void  omniobj_perform64(t_omniobj* x, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam);
 void  omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags);
-void  omniobj_receive_message_any_inlet(t_omniobj* self, t_symbol* s, long argc, t_atom* argv);
+t_max_err omniobj_notify(t_omniobj *x, t_symbol *s, t_symbol *msg, void *sender, void *data);
 
 //Main
 void ext_main(void *r)
 {
 	this_class = class_new(OBJ_NAME, (method)omniobj_new, (method)omniobj_free, sizeof(t_omniobj), NULL, A_GIMME, 0);
 	
-	//class methods
+	//Class methods
 	class_addmethod(this_class, (method)omniobj_dsp64,	 "dsp64",  A_CANT,  0);
-	//class_addmethod(this_class, (method)omniobj_float,   "float",  A_FLOAT, 0);
-	//class_addmethod(this_class, (method)omniobj_int,	 "int",    A_LONG,  0);
 	class_addmethod(this_class, (method)omniobj_assist,  "assist", A_CANT,  0);
-	//class_addmethod(this_class, (method)omniobj_notify,  "notify", A_CANT,  0);
-
-	//Message to any inlet
-	class_addmethod(this_class, (method)omniobj_receive_message_any_inlet, "anything", A_GIMME, 0);
+	class_addmethod(this_class, (method)omniobj_notify,  "notify", A_CANT,  0);
+	class_addmethod(this_class, (method)omniobj_set,     "set",    A_GIMME, 0);
 
 	//Init all function pointers
 	Omni_InitGlobal(
@@ -170,7 +173,7 @@ void ext_main(void *r)
 void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 {
 	//Alloc the object
-	t_omniobj *self = (t_omniobj *)object_alloc(this_class);
+	t_omniobj *self = (t_omniobj*)object_alloc(this_class);
 
 	//Allocate the omni_ugen.
 	if(!self->omni_ugen)
@@ -180,21 +183,23 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 	}
 
 	//Allocate memory for omni_current_set_param_vals and set it to default values
-	if(NUM_PARAMS > 0)
-	{
-		self->omni_current_set_param_vals = (double*)malloc(NUM_PARAMS * sizeof(double));
-		for(int i = 0; i < NUM_PARAMS; i++)
-			self->omni_current_set_param_vals[i] = param_defaults[i];
-	}
+	self->omni_current_set_param_vals = (double*)malloc(NUM_PARAMS * sizeof(double));
+	for(int i = 0; i < NUM_PARAMS; i++)
+		self->omni_current_set_param_vals[i] = param_defaults[i];
 
-	//Allocate memory for all buffers
-	if(NUM_BUFFERS > 0) 
+	//Allocate memory for all buffers, and set defaults when they != NIL
+	self->buffer_refs = (t_buffer_ref**)malloc(NUM_BUFFERS * sizeof(t_buffer_ref*));
+	for(int i = 0; i < NUM_BUFFERS; i++)
 	{
-		self->buffer_refs = (t_buffer_ref**)malloc(NUM_BUFFERS * sizeof(t_buffer_ref*));
-		for(int i = 0; i < NUM_BUFFERS; i++)
-		{
-			//self->buffer_refs[i]
-		}
+		t_symbol* buffer_default_sym;
+		const char* buffer_default = buffer_defaults[i].c_str();
+		
+		if(strcmp(buffer_default, "NIL") != 0)	
+			buffer_default_sym = gensym(buffer_default);
+		else
+			buffer_default_sym = gensym("");
+
+		self->buffer_refs[i] = buffer_ref_new((t_object*)self, buffer_default_sym);
 	}
 
 	//Parse arguments. floats / ints set a param (in order). symbols set a buffer (in order)
@@ -207,37 +212,41 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 		int buffer_counter = 0;
 
 		//Set a param
-		if(arg_type == A_LONG)
-		{
-			double arg_val = double(atom_getlong(arg));
-			Omni_UGenSetParam(self->omni_ugen, param_names[param_counter].c_str(), arg_val);
-			self->omni_current_set_param_vals[param_counter] = arg_val;
-			param_counter += 1;
-		}
+		if(arg_type == A_LONG || arg_type == A_FLOAT)
+		{	
+			if(param_counter < NUM_PARAMS)
+			{
+				double arg_val;
+				
+				if(arg_type == A_LONG)
+					arg_val = double(atom_getlong(arg));
+				else
+					arg_val = atom_getfloat(arg);
 
-		//Set a param
-		else if(arg_type == A_FLOAT)
-		{
-			double arg_val = atom_getfloat(arg);
-			Omni_UGenSetParam(self->omni_ugen, param_names[param_counter].c_str(), arg_val);
-			self->omni_current_set_param_vals[param_counter] = arg_val;
-			param_counter += 1;
+				//Omni_UGenSetParam(self->omni_ugen, param_names[param_counter].c_str(), arg_val);
+				//self->omni_current_set_param_vals[param_counter] = arg_val;
+				param_counter += 1;
+			}
 		}
 
 		//Set a buffer
 		else if(arg_type == A_SYM)
 		{
-			t_symbol* arg_val = atom_getsym(arg);
-			buffer_counter += 1;
+			if(buffer_counter < NUM_BUFFERS)
+			{
+				t_symbol* arg_val = atom_getsym(arg);
+				buffer_ref_set(self->buffer_refs[buffer_counter], arg_val);
+				buffer_counter += 1;
+			}
 		}
 	}
 
 	//Inlets
-	dsp_setup((t_pxobject *)self, NUM_INS);
+	dsp_setup((t_pxobject*)self, NUM_INS);
 
 	//Outlets
-	for(int y = 0; y < NUM_OUTS; y++)
-		outlet_new((t_object *)self, "signal");				
+	for(int i = 0; i < NUM_OUTS; i++)
+		outlet_new((t_object*)self, "signal");				
 
 	//Necessary for no input / output buffers aliasing!
 	self->w_obj.z_misc |= Z_NO_INPLACE;
@@ -251,18 +260,19 @@ void omniobj_free(t_omniobj *self)
 	//Free omni ugen
 	if(self->omni_ugen)
 		Omni_UGenFree(self->omni_ugen);
-
+	
 	//Free omni_current_set_param_vals
 	if(self->omni_current_set_param_vals)
 		free(self->omni_current_set_param_vals);
 
-	//Free buffer references
+	//Free buffer reference
 	if(self->buffer_refs)
 	{
 		for(int i = 0; i < NUM_BUFFERS; i++)
 		{
 			t_buffer_ref* buffer_ref = self->buffer_refs[i];
-			if(buffer_ref)
+			//If valid buffer
+			if(buffer_ref_getobject(buffer_ref))
 				object_free(buffer_ref);
 		}
 
@@ -270,7 +280,7 @@ void omniobj_free(t_omniobj *self)
 	}
 
 	//Free dsp object
-	dsp_free((t_pxobject *)self);
+	dsp_free((t_pxobject*)self);
 }
 
 //inlet/outlet names
@@ -305,59 +315,91 @@ void omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long in
 	}
 }
 
+//Send notification to buffer ref when something changes to the buffer (replaced, deleted, etc...)
+t_max_err omniobj_notify(t_omniobj *self, t_symbol *s, t_symbol *msg, void *sender, void *data)
+{
+	//This is the buffer_name that received the message
+	t_symbol*   buffer_name_sym = (t_symbol *)object_method((t_object *)sender, gensym("getname"));
+	const char* buffer_name = buffer_name_sym->s_name;
+
+	//Look for the buffer_name in the buffer_refs array, and send the notify message to it
+	for(int i = 0; i < NUM_BUFFERS; i++)
+	{	
+		t_buffer_ref*  buffer_ref = self->buffer_refs[i];
+		if(buffer_ref)
+		{		
+			//Retrieve buffer's infos and name
+			t_buffer_info* buffer_info;	
+			buffer_getinfo(buffer_ref_getobject(buffer_ref), buffer_info);
+			const char* buffer_ref_name = buffer_info->b_name->s_name;
+
+			//Found the buffer! Send the notification to it.
+			if(strcmp(buffer_name, buffer_ref_name) == 0)
+			{
+				post("NOTIFY buffer with name %s with message %s", buffer_ref_name, msg->s_name);
+				return buffer_ref_notify(buffer_ref, s, msg, sender, data);
+			}
+		}
+	}
+	
+	return 0;
+}
+
 //Set a param:  "set freq 440"
 //Set a buffer: "set buffer bufferName"
-void omniobj_receive_message_any_inlet_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
+void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 {
-	//inlet number
-	long in = proxy_getinlet((t_object *)self);
-	
-	//message parser
-	const char* message = s->s_name;
-	
-	//Check if message is "set"
-	if(strcmp(message, "set") == 0)
-	{	
-		//"set param 0.5", "set buf bufferName"
-		if(argc == 2)
+	//freq 440 OR buffer bufferName
+	if(argc == 2)
+	{
+		t_atom* arg1 = argv;
+		t_atom* arg2 = argv + 1;
+		short arg1_type = arg1->a_type;
+		short arg2_type = arg2->a_type;
+
+		if(arg1_type == A_SYM)
 		{
-			t_atom* arg1 = argv;
-			t_atom* arg2 = argv + 1;
-			short arg1_type = arg1->a_type;
-			short arg2_type = arg2->a_type;
+			const char* arg1_char = atom_getsym(arg1)->s_name; 
 
-			if(arg1_type == A_SYM)
-			{
-				const char* arg1_char = atom_getsym(arg1)->s_name; 
+			//Set param, float values
+			if(arg2_type == A_FLOAT || arg2_type == A_LONG)
+			{	
+				double value;
+				if(arg2_type == A_FLOAT)
+					value = atom_getfloat(arg2);
+				else
+					value = double(atom_getlong(arg2));
+				
+				//Set param
+				Omni_UGenSetParam(self->omni_ugen, arg1_char, value);
 
-				//Set param, float values
-				if(arg2_type == A_FLOAT || arg2_type == A_LONG)
-				{	
-					double arg2_double;
-					if(arg2_type == A_FLOAT)
-						arg2_double = atom_getfloat(arg2);
-					else
-						arg2_double = double(atom_getlong(arg2));
-					
-					//Set param
-					Omni_UGenSetParam(self->omni_ugen, arg1_char, arg2_double);
-
-					//Store its value for DSP changes, like samplerate, which would re-allocate the Omni object
-					for(int i = 0; i < NUM_PARAMS; i++)
+				//Store its value for DSP changes, like samplerate, which would re-allocate the Omni object
+				for(int i = 0; i < NUM_PARAMS; i++)
+				{
+					const char* param_name = param_names[i].c_str();
+					if(strcmp(param_name, arg1_char) == 0)
 					{
-						const char* param_name = param_names[i].c_str();
-						if(strcmp(param_name, arg1_char) == 0)
-						{
-							self->omni_current_set_param_vals[i] = arg2_double;
-							break;
-						}
+						self->omni_current_set_param_vals[i] = value;
+						break;
 					}
 				}
+			}
 
-				//Set buffer names, sym value
-				else if(arg2_type = A_SYM)
+			//Set buffers, sym value
+			else if(arg2_type = A_SYM)
+			{
+				t_symbol* new_buffer_val = atom_getsym(arg2);
+				
+				//Find the correct buffer name and set its new value
+				for(int i = 0; i < NUM_BUFFERS; i++)
 				{
-					t_symbol* arg2_sym = atom_getsym(arg2);
+					const char* buffer_name = buffer_names[i].c_str();
+					if(strcmp(buffer_name, arg1_char) == 0)
+					{
+						post("setting buffer %s to %s", buffer_name, new_buffer_val->s_name);
+						buffer_ref_set(self->buffer_refs[i], new_buffer_val);
+						break;
+					}
 				}
 			}
 		}
@@ -366,21 +408,20 @@ void omniobj_receive_message_any_inlet_defer(t_omniobj* self, t_symbol* s, long 
 
 //Set a param:  "set freq 440"
 //Set a buffer: "set buffer bufferName"
-void omniobj_receive_message_any_inlet(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
+void omniobj_set(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 {
 	//if not in scheduler's thread, defer executes immediately (check docs)
-	defer(self, (method)omniobj_receive_message_any_inlet_defer, s, argc, argv);
+	defer(self, (method)omniobj_set_defer, s, argc, argv);
 }
 
 //perform64
 void omniobj_perform64(t_omniobj* self, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam)
 {
-	/* Actual audio loop in omni */
 	if(self->omni_ugen_is_init)
 		Omni_UGenPerform64(self->omni_ugen, ins, outs, (int)sampleframes);
 	else
 	{
-		for (int i = 0; i < numouts; i++)
+		for(int i = 0; i < numouts; i++)
 		{
 			for(int y = 0; y < sampleframes; y++)
 				outs[i][y] = 0.0;
@@ -392,7 +433,7 @@ void omniobj_perform64(t_omniobj* self, t_object* dsp64, double** ins, long numi
 void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags) 
 {
 	//Special case, if there is a change in samplerate or bufsize, and object has already been allocated and initialized, 
-	//get rid of previous object, allocate new and re-init.
+	//get rid of previous object, allocate new one and re-init.
 	if(((max_samplerate != samplerate) || max_bufsize != maxvectorsize) && self->omni_ugen && self->omni_ugen_is_init)
 	{
 		//Free, then re-alloc
@@ -412,14 +453,12 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		}
 
 		//Re-init the ugen
-		int omni_successful_init = Omni_UGenInit(
+		self->omni_ugen_is_init = Omni_UGenInit(
 			self->omni_ugen,  
 			(int)maxvectorsize,
 			samplerate, 
 			(void*)self
 		);
-		
-		self->omni_ugen_is_init  = omni_successful_init != 0;
 	}
 
 	//Standard case, don't re-init object everytime dsp chain is recompiled, but just one time:
@@ -431,14 +470,12 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		max_bufsize    = maxvectorsize;
 		
 		//init ugen
-		int omni_successful_init = Omni_UGenInit(
+		self->omni_ugen_is_init = Omni_UGenInit(
 			self->omni_ugen, 
 			(int)maxvectorsize, 
 			samplerate, 
 			(void*)self
 		);
-
-		self->omni_ugen_is_init  = omni_successful_init != 0;
 	}
 
 	//Add dsp64 method
