@@ -25,13 +25,10 @@ import omni_lang/core/wrapper/omni_wrapper
 #[ All these functions are defined in the Max object cpp file ]#
 
 #Retrieve buffer_ref*
-proc get_buffer_ref_Max(buffer_name : ptr cchar)    : pointer {.importc, cdecl.}
+proc get_buffer_ref_Max(max_object : pointer, buffer_name : cstring) : pointer {.importc, cdecl.}
 
 #Retrive buffer_obj*
-proc get_buffer_obj_Max(buffer_ref : pointer)       : pointer {.importc, cdecl.}
-
-#Set buffer_obj* to dirty
-proc set_buffer_obj_dirty_Max(buffer_obj : pointer) : void    {.importc, cdecl.}
+proc get_buffer_obj_Max(buffer_ref : pointer) : pointer {.importc, cdecl.}
 
 #Lock / Unlock
 proc lock_buffer_Max(buffer_obj : pointer)   : ptr float {.importc, cdecl.}
@@ -50,13 +47,13 @@ omniBufferInterface:
         buffer_obj  : pointer                      #pointer to t_buffer_obj
         buffer_data : ptr UncheckedArray[float32]  #actual float* data
 
-    #(buffer_interface : pointer) -> void
+    #(buffer_interface : pointer, buffer_name : cstring) -> void
     init:
         #Max object is passed via buffer_interface
         let max_object = buffer_interface
 
         #Get buffer_ref from max
-        buffer.buffer_ref = get_buffer_ref_Max(max_object, buffer.name)
+        buffer.buffer_ref = get_buffer_ref_Max(max_object, buffer_name)
 
     #(buffer : Buffer, val : cstring) -> void
     update:
@@ -65,12 +62,10 @@ omniBufferInterface:
     #(buffer : Buffer) -> bool
     lock:
         let buffer_ref = buffer.buffer_ref
-        var buffer_obj : pointer
+        if isNil(buffer_ref):
+            return false
 
-        if not isNil(buffer_ref):
-            buffer_obj = get_buffer_obj_Max(buffer_ref)
-
-        #Invalid buffer_obj
+        let buffer_obj = get_buffer_obj_Max(buffer_ref)
         if isNil(buffer_obj):
             return false
 
@@ -91,7 +86,6 @@ omniBufferInterface:
     #(buffer : Buffer) -> void
     unlock:
         let buffer_obj = buffer.buffer_obj
-        set_buffer_obj_dirty_Max(buffer_obj)
         unlock_buffer_Max(buffer_obj)
 
     #(buffer : Buffer) -> int
