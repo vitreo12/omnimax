@@ -20,10 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-#Import Max's Buffer module extensions
-import omnimax_lang/lang/buffers/omnimax_buffers
-export omnimax_buffers
-
 #Import Max's Buffer module
 import omnimax_lang/lib/buffer/omnimax_buffer
 export omnimax_buffer

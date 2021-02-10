@@ -57,15 +57,16 @@ omniBufferInterface:
 
     #(buffer : Buffer, val : cstring) -> void
     update:
-        discard
+        let buffer_obj = get_buffer_obj_Max(buffer.buffer_ref)
+        if buffer.buffer_obj != buffer_obj:
+            buffer.buffer_obj = buffer_obj
+            buffer.length = get_frames_buffer_Max(buffer_obj)
+            buffer.samplerate = get_samplerate_buffer_Max(buffer_obj)
+            buffer.channels = get_channels_buffer_Max(buffer_obj)
     
     #(buffer : Buffer) -> bool
     lock:
-        let buffer_ref = buffer.buffer_ref
-        if isNil(buffer_ref):
-            return false
-
-        let buffer_obj = get_buffer_obj_Max(buffer_ref)
+        let buffer_obj = buffer.buffer_obj
         if isNil(buffer_obj):
             return false
 
@@ -77,13 +78,6 @@ omniBufferInterface:
         if isNil(buffer_data_ptr):
             return false
 
-        #New buffer_obj, update pointer / length / samplerate / channels
-        if buffer.buffer_obj != buffer_obj:
-            buffer.buffer_obj = buffer_obj
-            buffer.length = get_frames_buffer_Max(buffer_obj)
-            buffer.samplerate = get_samplerate_buffer_Max(buffer_obj)
-            buffer.channels = get_channels_buffer_Max(buffer_obj)
-
         #Set correct pointer to float32 data
         buffer.buffer_data = buffer_data
 
@@ -91,8 +85,7 @@ omniBufferInterface:
     
     #(buffer : Buffer) -> void
     unlock:
-        let buffer_obj = buffer.buffer_obj
-        unlock_buffer_Max(buffer_obj)
+        unlock_buffer_Max(buffer.buffer_obj)
 
     #(buffer : Buffer, index : SomeInteger, channel : SomeInteger) -> float
     getter:

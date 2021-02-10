@@ -19,7 +19,7 @@ const std::array<double,NUM_INS> input_defaults = {0.0};
 const std::array<std::string,NUM_PARAMS> param_names = {"freq"};
 const std::array<double,NUM_PARAMS> param_defaults = {440.0};
 const std::array<std::string,NUM_BUFFERS> buffer_names = {"buf"};
-const std::array<std::string,NUM_BUFFERS> buffer_defaults = {"NIL"};
+const std::array<std::string,NUM_BUFFERS> buffer_defaults = {"hello"};
 const std::array<std::string,NUM_OUTS> output_names = {"out1"};
 
 //Used for attributes matching
@@ -266,6 +266,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 			{
 				t_symbol* arg_val = atom_getsym(arg);
 				buffer_ref_set(self->buffer_refs[buffer_counter], arg_val);
+				//Don't run Omni_UGenSetBuffer, as Omni_UGenInit hasn't run yet
 				self->buffer_refs_syms[buffer_counter] = arg_val;
 				buffer_counter += 1;
 			}
@@ -375,6 +376,8 @@ t_max_err omniobj_attr_set(t_omniobj *self, t_object *attr, long argc, t_atom *a
 				int i_offset = i - NUM_PARAMS;
 				t_symbol* new_buffer_sym = atom_getsym(argv);
 				buffer_ref_set(self->buffer_refs[i_offset], new_buffer_sym);
+				if(self->omni_ugen_init)
+					Omni_UGenSetBuffer(self->omni_ugen, buffer_names[i_offset].c_str(), "");
 				self->buffer_refs_syms[i_offset] = new_buffer_sym;
 			}
 		}
@@ -429,13 +432,19 @@ t_max_err omniobj_notify(t_omniobj *self, t_symbol *s, t_symbol *msg, void *send
 
 		if(buffer_ref)
 		{
-			//Match the correct buffer
+			//Match the correct buffer and update omni's pointer
 			if(buffer_ref_sym == buffer_name_sym)
-				return buffer_ref_notify(buffer_ref, s, msg, sender, data);
+			{
+				t_max_err err = buffer_ref_notify(buffer_ref, s, msg, sender, data);
+				if(self->omni_ugen_init)
+					Omni_UGenSetBuffer(self->omni_ugen, buffer_names[i].c_str(), "");
+				return err;
+			}
+				
 		}
 	}
 	
-	return 0;
+	return MAX_ERR_NONE;
 }
 
 //Set a param:  "set freq 440"
@@ -490,6 +499,8 @@ void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 					if(strcmp(buffer_name, arg1_char) == 0)
 					{
 						buffer_ref_set(self->buffer_refs[i], new_buffer_sym);
+						if(self->omni_ugen_init)
+							Omni_UGenSetBuffer(self->omni_ugen, buffer_name, "");
 						self->buffer_refs_syms[i] = new_buffer_sym;
 						break;
 					}
@@ -569,6 +580,16 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 			samplerate, 
 			(void*)self
 		);
+	}
+
+	//Update buffers (UGen must be init)
+	if(self->omni_ugen_init)
+	{
+		for(int i = 0; i < NUM_BUFFERS; i++)
+		{
+			const char* buffer_name = buffer_names[i].c_str();
+			Omni_UGenSetBuffer(self->omni_ugen, buffer_name, "");
+		}
 	}
 
 	//Add dsp64 method
