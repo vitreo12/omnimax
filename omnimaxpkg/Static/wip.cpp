@@ -67,7 +67,7 @@ typedef struct _omniobj
 
 	//These are used to collect params' settings when DSP is off.
 	//Also helps when resetting samplerate, as a re-allocation of the omni object happens there
-	double* omni_current_set_param_vals;
+	double* current_param_vals;
 
 	//Array of all t_buffer_ref*
 	t_buffer_ref** buffer_refs;
@@ -171,12 +171,14 @@ void ext_main(void *r)
 	{
 		const char* param_name = param_names[i].c_str();
 		CLASS_ATTR_DOUBLE(this_class, param_name, 0, t_omniobj, w_obj);
+		CLASS_ATTR_LABEL(this_class, param_name, 0, param_name);
 		OMNI_CLASS_ATTR_ACCESSORS(this_class, param_name, omniobj_attr_get, omniobj_attr_set, i);	
 	}
 	for(int i = 0; i < NUM_BUFFERS; i++)
 	{
 		const char* buffer_name = buffer_names[i].c_str();
 		CLASS_ATTR_SYM(this_class, buffer_name, 0, t_omniobj, w_obj);
+		CLASS_ATTR_LABEL(this_class, buffer_name, 0, buffer_name);
 		OMNI_CLASS_ATTR_ACCESSORS(this_class, buffer_name, omniobj_attr_get, omniobj_attr_set, (i + NUM_PARAMS));	
 	}
 	
@@ -208,10 +210,10 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 		self->omni_ugen_init = false;
 	}
 
-	//Allocate memory for omni_current_set_param_vals and set it to default values
-	self->omni_current_set_param_vals = (double*)malloc(NUM_PARAMS * sizeof(double));
+	//Allocate memory for current_param_vals and set it to default values
+	self->current_param_vals = (double*)malloc(NUM_PARAMS * sizeof(double));
 	for(int i = 0; i < NUM_PARAMS; i++)
-		self->omni_current_set_param_vals[i] = param_defaults[i];
+		self->current_param_vals[i] = param_defaults[i];
 
 	//Allocate memory for all buffers, and set defaults when they != NIL
 	self->buffer_refs = (t_buffer_ref**)malloc(NUM_BUFFERS * sizeof(t_buffer_ref*));
@@ -252,7 +254,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 					arg_val = atom_getfloat(arg);
 				
 				Omni_UGenSetParam(self->omni_ugen, param_names[param_counter].c_str(), arg_val);
-				self->omni_current_set_param_vals[param_counter] = arg_val;
+				self->current_param_vals[param_counter] = arg_val;
 				param_counter += 1;
 			}
 		}
@@ -290,9 +292,9 @@ void omniobj_free(t_omniobj *self)
 	if(self->omni_ugen)
 		Omni_UGenFree(self->omni_ugen);
 	
-	//Free omni_current_set_param_vals
-	if(self->omni_current_set_param_vals)
-		free(self->omni_current_set_param_vals);
+	//Free current_param_vals
+	if(self->current_param_vals)
+		free(self->current_param_vals);
 
 	//Free buffer reference
 	if(self->buffer_refs)
@@ -351,7 +353,7 @@ void omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long in
 t_max_err omniobj_attr_set(t_omniobj *self, t_object *attr, long argc, t_atom *argv)
 {
 	if(argc != 1)
-		return 0;
+		return MAX_ERR_NONE;
 
 	for(int i = 0; i < (NUM_PARAMS + NUM_BUFFERS); i++)
 	{
@@ -365,7 +367,7 @@ t_max_err omniobj_attr_set(t_omniobj *self, t_object *attr, long argc, t_atom *a
 				double param_val = atom_getfloat(argv);
 				const char* param_name = param_names[i].c_str();
 				Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
-				self->omni_current_set_param_vals[i] = param_val;
+				self->current_param_vals[i] = param_val;
 			}
 			//Set a buffer
 			else
@@ -378,13 +380,39 @@ t_max_err omniobj_attr_set(t_omniobj *self, t_object *attr, long argc, t_atom *a
 		}
 	}
 
-	return 0;
+	return MAX_ERR_NONE;
 }
 
-//not used
+//attr get, works with attrui
 t_max_err omniobj_attr_get(t_omniobj* self, t_object *attr, long *argc, t_atom **argv)
 {
-	return 0;
+	for(int i = 0; i < (NUM_PARAMS + NUM_BUFFERS); i++)
+	{
+		//Match the correct attribute
+		t_object* attribute = attributes[i];
+		if(attribute == attr)
+		{
+			char alloc;
+
+			//Get a param
+			if(i < NUM_PARAMS)
+			{
+				double val = self->current_param_vals[i];
+				atom_alloc(argc, argv, &alloc);
+				atom_setfloat(*argv, val);
+			}
+			//Get a buffer
+			else
+			{
+				int i_offset = i - NUM_PARAMS;
+				t_symbol* val = self->buffer_refs_syms[i_offset];
+				atom_alloc(argc, argv, &alloc);
+				atom_setsym(*argv, val);
+			}
+		}
+	}
+	
+	return MAX_ERR_NONE;
 }
 
 //Send notification to buffer ref when something changes to the buffer (replaced, deleted, etc...)
@@ -444,7 +472,7 @@ void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 					const char* param_name = param_names[i].c_str();
 					if(strcmp(param_name, arg1_char) == 0)
 					{
-						self->omni_current_set_param_vals[i] = value;
+						self->current_param_vals[i] = value;
 						break;
 					}
 				}
@@ -513,7 +541,7 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		for(int i = 0; i < NUM_PARAMS; i++)
 		{
 			const char* param_name = param_names[i].c_str();
-			double param_val = self->omni_current_set_param_vals[i];
+			double param_val = self->current_param_vals[i];
 			Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
 		}
 
