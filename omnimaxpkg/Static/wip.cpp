@@ -11,18 +11,19 @@ using namespace c74::max;
 
 #define OBJ_NAME "libomnitest~"
 #define NUM_INS 1
-const std::array<std::string,1> input_names = {"in1"};
-const std::array<double,1> input_defaults = {0.0};
 #define NUM_PARAMS 1
-const std::array<std::string,1> param_names = {"freq"};
-const std::array<double,1> param_defaults = {440.0};
 #define NUM_BUFFERS 1
-const std::array<std::string,1> buffer_names = {"buf"};
-const std::array<std::string,1> buffer_defaults = {"NIL"};
 #define NUM_OUTS 1
-const std::array<std::string,1> output_names = {"out1"};
+const std::array<std::string,NUM_INS> input_names = {"in1"};
+const std::array<double,NUM_INS> input_defaults = {0.0};
+const std::array<std::string,NUM_PARAMS> param_names = {"freq"};
+const std::array<double,NUM_PARAMS> param_defaults = {440.0};
+const std::array<std::string,NUM_BUFFERS> buffer_names = {"buf"};
+const std::array<std::string,NUM_BUFFERS> buffer_defaults = {"NIL"};
+const std::array<std::string,NUM_OUTS> output_names = {"out1"};
 
-#define MAXIMUM_BUFFER_NAMES_LEN 100
+//Used for attributes matching
+std::array<t_object*,(NUM_PARAMS+NUM_BUFFERS)> attributes;
 
 //global class pointer
 static t_class* this_class = nullptr;
@@ -31,12 +32,12 @@ static t_class* this_class = nullptr;
 double max_samplerate = 0.0;
 long   max_bufsize    = 0;
 
-/********************************/
-/* print / samplerate / bufsize */
-/********************************/
+/*********/
+/* print */
+/*********/
 void maxPrint_debug(const char* format_string, size_t value)
 {
-	post("%s%d", format_string, value);
+	post("%s %d", format_string, value);
 }
 
 void maxPrint_str(const char* format_string)
@@ -44,7 +45,7 @@ void maxPrint_str(const char* format_string)
 	post("%s", format_string);
 }
 
-void maxPrint_float(float value)
+void maxPrint_float(float value) 
 {
 	post("%f", value);
 }
@@ -62,7 +63,7 @@ typedef struct _omniobj
 	t_pxobject w_obj;
 	
 	void* omni_ugen;
-	bool  omni_ugen_is_init;
+	bool  omni_ugen_init;
 
 	//These are used to collect params' settings when DSP is off.
 	//Also helps when resetting samplerate, as a re-allocation of the omni object happens there
@@ -70,6 +71,9 @@ typedef struct _omniobj
 
 	//Array of all t_buffer_ref*
 	t_buffer_ref** buffer_refs;
+
+	//Array of all symbols that buffer_refs point to. This is used to match buffers on notify
+	t_symbol** buffer_refs_syms;
 } t_omniobj;
 
 /****************************/
@@ -85,9 +89,9 @@ extern "C"
 		for(int i = 0; i < NUM_BUFFERS; i++)
 		{
 			const char* buffer_name_entry = buffer_names[i].c_str();
-			t_buffer_ref* buf_ref = ((t_omniobj*)max_object)->buffer_refs[i];
+			t_buffer_ref* buffer_ref = ((t_omniobj*)max_object)->buffer_refs[i];
 			if(strcmp(buffer_name_entry, buffer_name) == 0)
-				return (void*)buf_ref;
+				return (void*)buffer_ref;
 		}
 
 		return nullptr;
@@ -136,12 +140,20 @@ extern "C"
 /* Max template functions */
 /**************************/
 void* omniobj_new(t_symbol *s, long argc, t_atom *argv);
-void  omniobj_free(t_omniobj *x);
+void  omniobj_free(t_omniobj* self);
 void  omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long index, char* string_dest);
 void  omniobj_set(t_omniobj* self, t_symbol* s, long argc, t_atom* argv);
 void  omniobj_perform64(t_omniobj* x, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam);
 void  omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double samplerate, long maxvectorsize, long flags);
-t_max_err omniobj_notify(t_omniobj *x, t_symbol *s, t_symbol *msg, void *sender, void *data);
+t_max_err omniobj_notify(t_omniobj* self, t_symbol *s, t_symbol *msg, void *sender, void *data);
+t_max_err omniobj_attr_get(t_omniobj* self, t_object *attr, long *argc, t_atom **argv);
+t_max_err omniobj_attr_set(t_omniobj* self, t_object *attr, long argc, t_atom *argv);
+
+#define OMNI_CLASS_ATTR_ACCESSORS(c,attrname,getter,setter, index) \
+        { t_object* theattr=(t_object* )class_attr_get(c,gensym(attrname)); \
+			attributes[index]=theattr; \
+            object_method(theattr,gensym("setmethod"), (void*)gensym("get"), (void*)getter); \
+            object_method(theattr,gensym("setmethod"), (void*)gensym("set"), (void*)setter); }
 
 //Main
 void ext_main(void *r)
@@ -154,6 +166,20 @@ void ext_main(void *r)
 	class_addmethod(this_class, (method)omniobj_notify,  "notify", A_CANT,  0);
 	class_addmethod(this_class, (method)omniobj_set,     "set",    A_GIMME, 0);
 
+	//Attributes
+	for(int i = 0; i < NUM_PARAMS; i++)
+	{
+		const char* param_name = param_names[i].c_str();
+		CLASS_ATTR_DOUBLE(this_class, param_name, 0, t_omniobj, w_obj);
+		OMNI_CLASS_ATTR_ACCESSORS(this_class, param_name, omniobj_attr_get, omniobj_attr_set, i);	
+	}
+	for(int i = 0; i < NUM_BUFFERS; i++)
+	{
+		const char* buffer_name = buffer_names[i].c_str();
+		CLASS_ATTR_SYM(this_class, buffer_name, 0, t_omniobj, w_obj);
+		OMNI_CLASS_ATTR_ACCESSORS(this_class, buffer_name, omniobj_attr_get, omniobj_attr_set, (i + NUM_PARAMS));	
+	}
+	
 	//Init all function pointers
 	Omni_InitGlobal(
 		(omni_alloc_func_t*)malloc, 
@@ -179,7 +205,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 	if(!self->omni_ugen)
 	{
 		self->omni_ugen = Omni_UGenAlloc();
-		self->omni_ugen_is_init = false;
+		self->omni_ugen_init = false;
 	}
 
 	//Allocate memory for omni_current_set_param_vals and set it to default values
@@ -189,6 +215,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 
 	//Allocate memory for all buffers, and set defaults when they != NIL
 	self->buffer_refs = (t_buffer_ref**)malloc(NUM_BUFFERS * sizeof(t_buffer_ref*));
+	self->buffer_refs_syms = (t_symbol**)malloc(NUM_BUFFERS * sizeof(t_symbol*));
 	for(int i = 0; i < NUM_BUFFERS; i++)
 	{
 		t_symbol* buffer_default_sym;
@@ -200,6 +227,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 			buffer_default_sym = gensym("");
 
 		self->buffer_refs[i] = buffer_ref_new((t_object*)self, buffer_default_sym);
+		self->buffer_refs_syms[i] = buffer_default_sym;
 	}
 
 	//Parse arguments. floats / ints set a param (in order). symbols set a buffer (in order)
@@ -222,9 +250,9 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 					arg_val = double(atom_getlong(arg));
 				else
 					arg_val = atom_getfloat(arg);
-
-				//Omni_UGenSetParam(self->omni_ugen, param_names[param_counter].c_str(), arg_val);
-				//self->omni_current_set_param_vals[param_counter] = arg_val;
+				
+				Omni_UGenSetParam(self->omni_ugen, param_names[param_counter].c_str(), arg_val);
+				self->omni_current_set_param_vals[param_counter] = arg_val;
 				param_counter += 1;
 			}
 		}
@@ -236,6 +264,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 			{
 				t_symbol* arg_val = atom_getsym(arg);
 				buffer_ref_set(self->buffer_refs[buffer_counter], arg_val);
+				self->buffer_refs_syms[buffer_counter] = arg_val;
 				buffer_counter += 1;
 			}
 		}
@@ -271,12 +300,14 @@ void omniobj_free(t_omniobj *self)
 		for(int i = 0; i < NUM_BUFFERS; i++)
 		{
 			t_buffer_ref* buffer_ref = self->buffer_refs[i];
+			t_buffer_obj* buffer_obj = buffer_ref_getobject(buffer_ref);
 			//If valid buffer
-			if(buffer_ref_getobject(buffer_ref))
+			if(buffer_obj)
 				object_free(buffer_ref);
 		}
 
 		free(self->buffer_refs);
+		free(self->buffer_refs_syms);
 	}
 
 	//Free dsp object
@@ -315,30 +346,64 @@ void omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long in
 	}
 }
 
+//Set param / buffer attribute style:
+//freq 100 / buffer bufferName
+t_max_err omniobj_attr_set(t_omniobj *self, t_object *attr, long argc, t_atom *argv)
+{
+	if(argc != 1)
+		return 0;
+
+	for(int i = 0; i < (NUM_PARAMS + NUM_BUFFERS); i++)
+	{
+		//Match the correct attribute
+		t_object* attribute = attributes[i];
+		if(attribute == attr)
+		{
+			//Set a param
+			if(i < NUM_PARAMS)
+			{
+				double param_val = atom_getfloat(argv);
+				const char* param_name = param_names[i].c_str();
+				Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
+				self->omni_current_set_param_vals[i] = param_val;
+			}
+			//Set a buffer
+			else
+			{
+				int i_offset = i - NUM_PARAMS;
+				t_symbol* new_buffer_sym = atom_getsym(argv);
+				buffer_ref_set(self->buffer_refs[i_offset], new_buffer_sym);
+				self->buffer_refs_syms[i_offset] = new_buffer_sym;
+			}
+		}
+	}
+
+	return 0;
+}
+
+//not used
+t_max_err omniobj_attr_get(t_omniobj* self, t_object *attr, long *argc, t_atom **argv)
+{
+	return 0;
+}
+
 //Send notification to buffer ref when something changes to the buffer (replaced, deleted, etc...)
 t_max_err omniobj_notify(t_omniobj *self, t_symbol *s, t_symbol *msg, void *sender, void *data)
 {
 	//This is the buffer_name that received the message
-	t_symbol*   buffer_name_sym = (t_symbol *)object_method((t_object *)sender, gensym("getname"));
-	const char* buffer_name = buffer_name_sym->s_name;
+	t_symbol* buffer_name_sym = (t_symbol*)object_method((t_object *)sender, gensym("getname"));
 
 	//Look for the buffer_name in the buffer_refs array, and send the notify message to it
 	for(int i = 0; i < NUM_BUFFERS; i++)
 	{	
-		t_buffer_ref*  buffer_ref = self->buffer_refs[i];
-		if(buffer_ref)
-		{		
-			//Retrieve buffer's infos and name
-			t_buffer_info* buffer_info;	
-			buffer_getinfo(buffer_ref_getobject(buffer_ref), buffer_info);
-			const char* buffer_ref_name = buffer_info->b_name->s_name;
+		t_buffer_ref* buffer_ref     = self->buffer_refs[i];
+		t_symbol*     buffer_ref_sym = self->buffer_refs_syms[i];
 
-			//Found the buffer! Send the notification to it.
-			if(strcmp(buffer_name, buffer_ref_name) == 0)
-			{
-				post("NOTIFY buffer with name %s with message %s", buffer_ref_name, msg->s_name);
+		if(buffer_ref)
+		{
+			//Match the correct buffer
+			if(buffer_ref_sym == buffer_name_sym)
 				return buffer_ref_notify(buffer_ref, s, msg, sender, data);
-			}
 		}
 	}
 	
@@ -388,7 +453,7 @@ void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 			//Set buffers, sym value
 			else if(arg2_type = A_SYM)
 			{
-				t_symbol* new_buffer_val = atom_getsym(arg2);
+				t_symbol* new_buffer_sym = atom_getsym(arg2);
 				
 				//Find the correct buffer name and set its new value
 				for(int i = 0; i < NUM_BUFFERS; i++)
@@ -396,8 +461,8 @@ void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 					const char* buffer_name = buffer_names[i].c_str();
 					if(strcmp(buffer_name, arg1_char) == 0)
 					{
-						post("setting buffer %s to %s", buffer_name, new_buffer_val->s_name);
-						buffer_ref_set(self->buffer_refs[i], new_buffer_val);
+						buffer_ref_set(self->buffer_refs[i], new_buffer_sym);
+						self->buffer_refs_syms[i] = new_buffer_sym;
 						break;
 					}
 				}
@@ -417,7 +482,7 @@ void omniobj_set(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 //perform64
 void omniobj_perform64(t_omniobj* self, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam)
 {
-	if(self->omni_ugen_is_init)
+	if(self->omni_ugen_init)
 		Omni_UGenPerform64(self->omni_ugen, ins, outs, (int)sampleframes);
 	else
 	{
@@ -434,7 +499,7 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 {
 	//Special case, if there is a change in samplerate or bufsize, and object has already been allocated and initialized, 
 	//get rid of previous object, allocate new one and re-init.
-	if(((max_samplerate != samplerate) || max_bufsize != maxvectorsize) && self->omni_ugen && self->omni_ugen_is_init)
+	if(((max_samplerate != samplerate) || max_bufsize != maxvectorsize) && self->omni_ugen && self->omni_ugen_init)
 	{
 		//Free, then re-alloc
 		Omni_UGenFree(self->omni_ugen);
@@ -453,7 +518,7 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		}
 
 		//Re-init the ugen
-		self->omni_ugen_is_init = Omni_UGenInit(
+		self->omni_ugen_init = Omni_UGenInit(
 			self->omni_ugen,  
 			(int)maxvectorsize,
 			samplerate, 
@@ -463,14 +528,14 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 
 	//Standard case, don't re-init object everytime dsp chain is recompiled, but just one time:
 	//Data and structs need only to be allocated once!
-	if(self->omni_ugen && !(self->omni_ugen_is_init))
+	if(self->omni_ugen && !(self->omni_ugen_init))
 	{
-		//Change samplerate and bufsize
+		//Change global samplerate and bufsize
 		max_samplerate = samplerate;
 		max_bufsize    = maxvectorsize;
 		
 		//init ugen
-		self->omni_ugen_is_init = Omni_UGenInit(
+		self->omni_ugen_init = Omni_UGenInit(
 			self->omni_ugen, 
 			(int)maxvectorsize, 
 			samplerate, 
