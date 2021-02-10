@@ -31,8 +31,8 @@ proc get_buffer_ref_Max(max_object : pointer, buffer_name : cstring) : pointer {
 proc get_buffer_obj_Max(buffer_ref : pointer) : pointer {.importc, cdecl.}
 
 #Lock / Unlock
-proc lock_buffer_Max(buffer_obj : pointer)   : ptr float {.importc, cdecl.}
-proc unlock_buffer_Max(buffer_obj : pointer) : void      {.importc, cdecl.}
+proc lock_buffer_Max(buffer_obj : pointer)   : ptr float32 {.importc, cdecl.}
+proc unlock_buffer_Max(buffer_obj : pointer) : void        {.importc, cdecl.}
 
 #Utilities
 proc get_frames_buffer_Max(buffer_obj : pointer)     : clong   {.importc, cdecl.}
@@ -45,7 +45,7 @@ omniBufferInterface:
     struct:
         buffer_ref  : pointer                      #pointer to t_buffer_ref
         buffer_obj  : pointer                      #pointer to t_buffer_obj
-        buffer_data : ptr UncheckedArray[float32]  #actual float* data
+        buffer_data : ptr UncheckedArray[float32]  #pointer to float* data
 
     #(buffer_interface : pointer, buffer_name : cstring) -> void
     init:
@@ -77,10 +77,16 @@ omniBufferInterface:
         if isNil(buffer_data_ptr):
             return false
 
-        #Set correct pointers now that it's locked
-        buffer.buffer_obj  = buffer_obj
+        #New buffer_obj, update pointer / length / samplerate / channels
+        if buffer.buffer_obj != buffer_obj:
+            buffer.buffer_obj = buffer_obj
+            buffer.length = get_frames_buffer_Max(buffer_obj)
+            buffer.samplerate = get_samplerate_buffer_Max(buffer_obj)
+            buffer.channels = get_channels_buffer_Max(buffer_obj)
+
+        #Set correct pointer to float32 data
         buffer.buffer_data = buffer_data
-        
+
         return true
     
     #(buffer : Buffer) -> void
@@ -88,21 +94,9 @@ omniBufferInterface:
         let buffer_obj = buffer.buffer_obj
         unlock_buffer_Max(buffer_obj)
 
-    #(buffer : Buffer) -> int
-    length:
-        return get_frames_buffer_Max(buffer.buffer_obj)
-    
-    #(buffer : Buffer) -> float
-    samplerate:
-        return get_samplerate_buffer_Max(buffer.buffer_obj)
-    
-    #(buffer : Buffer) -> int
-    channels:
-        return get_channels_buffer_Max(buffer.buffer_obj)
-
     #(buffer : Buffer, index : SomeInteger, channel : SomeInteger) -> float
     getter:
-        let chans = buffer.channels()
+        let chans = buffer.channels
         
         var actual_index : int
 
@@ -111,14 +105,14 @@ omniBufferInterface:
         else:
             actual_index = (index * chans) + channel
         
-        if actual_index >= 0 and actual_index < buffer.size():
-            return float(buffer.buffer_data[actual_index])
+        if actual_index >= 0 and actual_index < buffer.size:
+            return buffer.buffer_data[actual_index]
         
-        return float(0.0)
+        return 0.0
     
     #(buffer : Buffer, x : SomeFloat, index : SomeInteger, channel : SomeInteger) -> void
     setter:
-        let chans = buffer.channels()
+        let chans = buffer.channels
         
         var actual_index : int
         
@@ -127,5 +121,5 @@ omniBufferInterface:
         else:
             actual_index = (index * chans) + channel
         
-        if actual_index >= 0 and actual_index < buffer.size():
+        if actual_index >= 0 and actual_index < buffer.size:
             buffer.buffer_data[actual_index] = float32(x)
