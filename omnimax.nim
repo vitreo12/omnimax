@@ -159,20 +159,20 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     
     let 
         num_inputs  = parseInt(io_file_seq[0])     
-        input_names_string = io_file_seq[1]
-        input_names = input_names_string.split(',')
-        input_defaults_string = io_file_seq[2]
-        input_defaults = input_defaults_string.split(',')
+        inputs_names_string = io_file_seq[1]
+        inputs_names = inputs_names_string.split(',')
+        inputs_defaults_string = io_file_seq[2]
+        inputs_defaults = inputs_defaults_string.split(',')
         num_params = parseInt(io_file_seq[3])
-        param_names_string = io_file_seq[4]
-        param_names = param_names_string.split(',')
-        param_defaults_string = io_file_seq[5]
-        param_defaults = param_defaults_string.split(',')
+        params_names_string = io_file_seq[4]
+        params_names = params_names_string.split(',')
+        params_defaults_string = io_file_seq[5]
+        params_defaults = params_defaults_string.split(',')
         num_buffers = parseInt(io_file_seq[6])
-        buffer_names_string = io_file_seq[7]
-        buffer_names = buffer_names_string.split(',')
-        output_names_string = io_file_seq[8]
-        output_names = output_names_string.split(',')
+        buffers_names_string = io_file_seq[7]
+        buffers_names = buffers_names_string.split(',')
+        outputs_names_string = io_file_seq[8]
+        outputs_names = outputs_names_string.split(',')
         num_outputs = parseInt(io_file_seq[9])
 
     # ======= #
@@ -183,27 +183,27 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         define_obj_name      = "#define OBJ_NAME \"" & $omni_max_object_name_tilde_symbol & "\""
         define_num_ins       = "#define NUM_INS " & $num_inputs
         const_inlet_names    = "const std::array<std::string," & $num_inputs & "> inlet_names = { "
-        const_input_defaults = "const std::array<double, " & $num_inputs & "> input_defaults = { " 
+        const_inputs_defaults = "const std::array<double, " & $num_inputs & "> inputs_defaults = { " 
         define_num_outs      = "#define NUM_OUTS " & $num_outputs
         const_outlet_names   = "const std::array<std::string," & $num_outputs & "> outlet_names = { "
 
     if num_inputs == 0:
         const_inlet_names.add("};")
-        const_input_defaults.add("};")
+        const_inputs_defaults.add("};")
     else:
-        for index, input_name in input_names:
-            let default_val = input_defaults[index]
+        for index, input_name in inputs_names:
+            let default_val = inputs_defaults[index]
             if index == num_inputs - 1:
                 const_inlet_names.add("\"" & $input_name & "\" };")
-                const_input_defaults.add($default_val & " };")
+                const_inputs_defaults.add($default_val & " };")
             else:
                 const_inlet_names.add("\"" & $input_name & "\", ")
-                const_input_defaults.add($default_val & ", ")
+                const_inputs_defaults.add($default_val & ", ")
 
     if num_outputs == 0:
         const_outlet_names.add("};")
     else:
-        for index, output_name in output_names:
+        for index, output_name in outputs_names:
             if index == num_outputs - 1:
                 const_outlet_names.add("\"" & $output_name & "\" };")
             else:
@@ -213,7 +213,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     include "omnimaxpkg/Static/Omni_PROTO.cpp.nim"
     
     #Reconstruct the cpp file
-    OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & const_input_defaults & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
+    OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & const_inputs_defaults & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
     
     # =========== #
     # WRITE FILES #

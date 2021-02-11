@@ -34,7 +34,7 @@ using namespace c74::max;
 
 var OMNI_PROTO_CPP = """ 
 
-#define MAXIMUM_BUFFER_NAMES_LEN 100
+#define MAXIMUM_buffers_names_LEN 100
 
 //global class pointer
 static t_class* this_class = nullptr;
@@ -98,7 +98,7 @@ typedef struct _omniobj
 
 	//Array of possible buffers and array of their names (used to parse the notify callback!!)
 	t_buffer_ref** buffer_refs_array;
-	char** 		   buffer_names_array;
+	char** 		   buffers_names_array;
 } t_omniobj;
 
 /****************************/
@@ -129,8 +129,8 @@ extern "C"
 				buffer_ref = buffer_ref_new((t_object*)self, unique_name);
 				self->buffer_refs_array[inlet] = buffer_ref;
 
-				self->buffer_names_array[inlet] = (char*)malloc(MAXIMUM_BUFFER_NAMES_LEN * sizeof(char));
-				strcpy(self->buffer_names_array[inlet], unique_name->s_name); 
+				self->buffers_names_array[inlet] = (char*)malloc(MAXIMUM_buffers_names_LEN * sizeof(char));
+				strcpy(self->buffers_names_array[inlet], unique_name->s_name); 
 			}
 
 			//post("Init buffer: %p", (void*)buffer_ref);
@@ -241,7 +241,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 	self->buffer_refs_array = (t_buffer_ref**)malloc(NUM_INS * sizeof(t_buffer_ref*));
 
 	//Allocate memory for buffers names (needed in the notify function!)
-	self->buffer_names_array = (char**)malloc(NUM_INS * sizeof(char*));
+	self->buffers_names_array = (char**)malloc(NUM_INS * sizeof(char*));
 
 	//These are used when sending float/int messages in inlets instead of signals
 	self->input_vals = (double*)malloc(NUM_INS * sizeof(double));
@@ -259,15 +259,15 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 		self->args[i]   = arg_ptr;
 
 		//Initialize both the args AND the input_vals with default values' array
-		self->args[i][0]    = input_defaults[i];
-		self->input_vals[i] = input_defaults[i];
+		self->args[i][0]    = inputs_defaults[i];
+		self->input_vals[i] = inputs_defaults[i];
 		
 		//Unchecked inlets (yet). Will be checked at the start of dsp function.
 		self->control_rate_inlets[i] = -1;
 
 		//Initialize buf_refs and buf_names to nullptr! This is essential!
 		self->buffer_refs_array[i]   = nullptr;
-		self->buffer_names_array[i]  = nullptr;
+		self->buffers_names_array[i]  = nullptr;
 		self->control_rate_arrays[i] = nullptr;
 	}
 
@@ -309,8 +309,8 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 
 			//post("arg %d: %s", y, arg_val->s_name);
 
-			self->buffer_names_array[y] = (char*)malloc(MAXIMUM_BUFFER_NAMES_LEN * sizeof(char));
-			strcpy(self->buffer_names_array[y], arg_val->s_name); 
+			self->buffers_names_array[y] = (char*)malloc(MAXIMUM_buffers_names_LEN * sizeof(char));
+			strcpy(self->buffers_names_array[y], arg_val->s_name); 
 		}
 	}
 
@@ -387,16 +387,16 @@ void omniobj_free(t_omniobj *self)
 	}
 
 	//Free buffer names array
-	if(self->buffer_names_array)
+	if(self->buffers_names_array)
 	{
 		for(int z = 0; z < NUM_INS; z++)
 		{
-			char* buffer_name = self->buffer_names_array[z];
+			char* buffer_name = self->buffers_names_array[z];
 			if(buffer_name)
 				free(buffer_name);
 		}
 
-		free(self->buffer_names_array);
+		free(self->buffers_names_array);
 	}
 
 	//Free dsp object
@@ -447,7 +447,7 @@ t_max_err omniobj_notify(t_omniobj *x, t_symbol *s, t_symbol *msg, void *sender,
 	for(int i = 0; i < NUM_INS; i++)
 	{	
 		t_buffer_ref* current_buffer_ref = x->buffer_refs_array[i];
-		char* current_buffer_name = x->buffer_names_array[i];
+		char* current_buffer_name = x->buffers_names_array[i];
 
 		if(current_buffer_ref)
 		{
@@ -493,7 +493,7 @@ void set_buffer_at_inlet(t_omniobj* self, long inlet, t_symbol* name)
 		buffer_ref_set(buffer_ref, name);
 		
 		//And update buffer names array entry
-		strcpy(self->buffer_names_array[inlet], name->s_name); 
+		strcpy(self->buffers_names_array[inlet], name->s_name); 
 	}
 
 	//If no buffer_ref, create a new one with the right name
@@ -502,8 +502,8 @@ void set_buffer_at_inlet(t_omniobj* self, long inlet, t_symbol* name)
 		buffer_ref = buffer_ref_new((t_object*)self, name);
 		self->buffer_refs_array[inlet] = buffer_ref;
 
-		self->buffer_names_array[inlet] = (char*)malloc(MAXIMUM_BUFFER_NAMES_LEN * sizeof(char));
-		strcpy(self->buffer_names_array[inlet], name->s_name); 
+		self->buffers_names_array[inlet] = (char*)malloc(MAXIMUM_buffers_names_LEN * sizeof(char));
+		strcpy(self->buffers_names_array[inlet], name->s_name); 
 		
 		//post("Initialized buffer: %p", (void*)buffer_ref);
 	}

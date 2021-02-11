@@ -14,13 +14,13 @@ using namespace c74::max;
 #define NUM_PARAMS 1
 #define NUM_BUFFERS 1
 #define NUM_OUTS 1
-const std::array<std::string,NUM_INS> input_names = {"in1"};
-const std::array<double,NUM_INS> input_defaults = {0.0};
-const std::array<std::string,NUM_PARAMS> param_names = {"freq"};
-const std::array<double,NUM_PARAMS> param_defaults = {440.0};
-const std::array<std::string,NUM_BUFFERS> buffer_names = {"buf"};
-const std::array<std::string,NUM_BUFFERS> buffer_defaults = {"hello"};
-const std::array<std::string,NUM_OUTS> output_names = {"out1"};
+const std::array<std::string,NUM_INS> inputs_names = {"in1"};
+const std::array<double,NUM_INS> inputs_defaults = {0.0};
+const std::array<std::string,NUM_PARAMS> params_names = {"freq"};
+const std::array<double,NUM_PARAMS> params_defaults = {440.0};
+const std::array<std::string,NUM_BUFFERS> buffers_names = {"buf"};
+const std::array<std::string,NUM_BUFFERS> buffers_defaults = {"hello"};
+const std::array<std::string,NUM_OUTS> outputs_names = {"out1"};
 
 //Used for attributes matching
 std::array<t_object*,(NUM_PARAMS+NUM_BUFFERS)> attributes;
@@ -88,7 +88,7 @@ extern "C"
 		
 		for(int i = 0; i < NUM_BUFFERS; i++)
 		{
-			const char* buffer_name_entry = buffer_names[i].c_str();
+			const char* buffer_name_entry = buffers_names[i].c_str();
 			t_buffer_ref* buffer_ref = ((t_omniobj*)max_object)->buffer_refs[i];
 			if(strcmp(buffer_name_entry, buffer_name) == 0)
 				return (void*)buffer_ref;
@@ -169,14 +169,14 @@ void ext_main(void *r)
 	//Attributes
 	for(int i = 0; i < NUM_PARAMS; i++)
 	{
-		const char* param_name = param_names[i].c_str();
+		const char* param_name = params_names[i].c_str();
 		CLASS_ATTR_DOUBLE(this_class, param_name, 0, t_omniobj, w_obj);
 		CLASS_ATTR_LABEL(this_class, param_name, 0, param_name);
 		OMNI_CLASS_ATTR_ACCESSORS(this_class, param_name, omniobj_attr_get, omniobj_attr_set, i);	
 	}
 	for(int i = 0; i < NUM_BUFFERS; i++)
 	{
-		const char* buffer_name = buffer_names[i].c_str();
+		const char* buffer_name = buffers_names[i].c_str();
 		CLASS_ATTR_SYM(this_class, buffer_name, 0, t_omniobj, w_obj);
 		CLASS_ATTR_LABEL(this_class, buffer_name, 0, buffer_name);
 		OMNI_CLASS_ATTR_ACCESSORS(this_class, buffer_name, omniobj_attr_get, omniobj_attr_set, (i + NUM_PARAMS));	
@@ -213,7 +213,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 	//Allocate memory for current_param_vals and set it to default values
 	self->current_param_vals = (double*)malloc(NUM_PARAMS * sizeof(double));
 	for(int i = 0; i < NUM_PARAMS; i++)
-		self->current_param_vals[i] = param_defaults[i];
+		self->current_param_vals[i] = params_defaults[i];
 
 	//Allocate memory for all buffers, and set defaults when they != NIL
 	self->buffer_refs = (t_buffer_ref**)malloc(NUM_BUFFERS * sizeof(t_buffer_ref*));
@@ -221,7 +221,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 	for(int i = 0; i < NUM_BUFFERS; i++)
 	{
 		t_symbol* buffer_default_sym;
-		const char* buffer_default = buffer_defaults[i].c_str();
+		const char* buffer_default = buffers_defaults[i].c_str();
 		
 		if(strcmp(buffer_default, "NIL") != 0)	
 			buffer_default_sym = gensym(buffer_default);
@@ -253,7 +253,7 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 				else
 					arg_val = atom_getfloat(arg);
 				
-				Omni_UGenSetParam(self->omni_ugen, param_names[param_counter].c_str(), arg_val);
+				Omni_UGenSetParam(self->omni_ugen, params_names[param_counter].c_str(), arg_val);
 				self->current_param_vals[param_counter] = arg_val;
 				param_counter += 1;
 			}
@@ -327,7 +327,7 @@ void omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long in
 			if(i == index)
 			{
 				std::string inlet_name = "(signal) ";
-				inlet_name.append(input_names[i].c_str());
+				inlet_name.append(inputs_names[i].c_str());
 				strncpy(string_dest, inlet_name.c_str(), ASSIST_STRING_MAXSIZE);
 				break;
 			}
@@ -341,7 +341,7 @@ void omniobj_assist(t_omniobj* self, void* unused, t_assist_function io, long in
 			if(i == index)
 			{
 				std::string outlet_name = "(signal) ";
-				outlet_name.append(output_names[i].c_str());
+				outlet_name.append(outputs_names[i].c_str());
 				strncpy(string_dest, outlet_name.c_str(), ASSIST_STRING_MAXSIZE);
 				break;
 			}
@@ -366,7 +366,7 @@ t_max_err omniobj_attr_set(t_omniobj *self, t_object *attr, long argc, t_atom *a
 			if(i < NUM_PARAMS)
 			{
 				double param_val = atom_getfloat(argv);
-				const char* param_name = param_names[i].c_str();
+				const char* param_name = params_names[i].c_str();
 				Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
 				self->current_param_vals[i] = param_val;
 			}
@@ -377,7 +377,7 @@ t_max_err omniobj_attr_set(t_omniobj *self, t_object *attr, long argc, t_atom *a
 				t_symbol* new_buffer_sym = atom_getsym(argv);
 				buffer_ref_set(self->buffer_refs[i_offset], new_buffer_sym);
 				if(self->omni_ugen_init)
-					Omni_UGenSetBuffer(self->omni_ugen, buffer_names[i_offset].c_str(), "");
+					Omni_UGenSetBuffer(self->omni_ugen, buffers_names[i_offset].c_str(), "");
 				self->buffer_refs_syms[i_offset] = new_buffer_sym;
 			}
 		}
@@ -437,7 +437,7 @@ t_max_err omniobj_notify(t_omniobj *self, t_symbol *s, t_symbol *msg, void *send
 			{
 				t_max_err err = buffer_ref_notify(buffer_ref, s, msg, sender, data);
 				if(self->omni_ugen_init)
-					Omni_UGenSetBuffer(self->omni_ugen, buffer_names[i].c_str(), "");
+					Omni_UGenSetBuffer(self->omni_ugen, buffers_names[i].c_str(), "");
 				return err;
 			}
 				
@@ -478,7 +478,7 @@ void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 				//Store its value for DSP changes, like samplerate, which would re-allocate the Omni object
 				for(int i = 0; i < NUM_PARAMS; i++)
 				{
-					const char* param_name = param_names[i].c_str();
+					const char* param_name = params_names[i].c_str();
 					if(strcmp(param_name, arg1_char) == 0)
 					{
 						self->current_param_vals[i] = value;
@@ -495,7 +495,7 @@ void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 				//Find the correct buffer name and set its new value
 				for(int i = 0; i < NUM_BUFFERS; i++)
 				{
-					const char* buffer_name = buffer_names[i].c_str();
+					const char* buffer_name = buffers_names[i].c_str();
 					if(strcmp(buffer_name, arg1_char) == 0)
 					{
 						buffer_ref_set(self->buffer_refs[i], new_buffer_sym);
@@ -551,7 +551,7 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		//Set correct param values again
 		for(int i = 0; i < NUM_PARAMS; i++)
 		{
-			const char* param_name = param_names[i].c_str();
+			const char* param_name = params_names[i].c_str();
 			double param_val = self->current_param_vals[i];
 			Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
 		}
@@ -587,7 +587,7 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 	{
 		for(int i = 0; i < NUM_BUFFERS; i++)
 		{
-			const char* buffer_name = buffer_names[i].c_str();
+			const char* buffer_name = buffers_names[i].c_str();
 			Omni_UGenSetBuffer(self->omni_ugen, buffer_name, "");
 		}
 	}
