@@ -1,6 +1,6 @@
 # MIT License
 # 
-# Copyright (c) 2020 Francesco Cameli
+# Copyright (c) 2020-2021 Francesco Cameli
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,7 +34,7 @@ const
     omnimax_ver = NimblePkgVersion
 
 #-v / --version
-let version_flag = "OmniMax - version " & $omnimax_ver & "\n(c) 2020 Francesco Cameli"
+let version_flag = "OmniMax - version " & $omnimax_ver & "\n(c) 2020-2021 Francesco Cameli"
 
 #Default to the omni nimble folder, which should have it installed if omnimax has been installed correctly
 const default_max_api_path = "~/.nimble/pkgs/omnimax-" & omnimax_ver & "/omnimaxpkg/deps/max-api"
