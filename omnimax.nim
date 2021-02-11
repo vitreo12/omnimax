@@ -158,7 +158,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         return 1
     
     let 
-        num_inputs  = parseInt(io_file_seq[0])     
+        num_inputs = parseInt(io_file_seq[0])     
         inputs_names_string = io_file_seq[1]
         inputs_names = inputs_names_string.split(',')
         inputs_defaults_string = io_file_seq[2]
@@ -171,49 +171,101 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         num_buffers = parseInt(io_file_seq[6])
         buffers_names_string = io_file_seq[7]
         buffers_names = buffers_names_string.split(',')
-        outputs_names_string = io_file_seq[8]
-        outputs_names = outputs_names_string.split(',')
+        buffers_defaults_string = io_file_seq[8]
+        buffers_defaults = buffers_defaults_string.split(',')
         num_outputs = parseInt(io_file_seq[9])
+        outputs_names_string = io_file_seq[10]
+        outputs_names = outputs_names_string.split(',')
 
     # ======= #
     # SET I/O #
     # ======= #
 
     var 
-        define_obj_name      = "#define OBJ_NAME \"" & $omni_max_object_name_tilde_symbol & "\""
-        define_num_ins       = "#define NUM_INS " & $num_inputs
-        const_inlet_names    = "const std::array<std::string," & $num_inputs & "> inlet_names = { "
-        const_inputs_defaults = "const std::array<double, " & $num_inputs & "> inputs_defaults = { " 
-        define_num_outs      = "#define NUM_OUTS " & $num_outputs
-        const_outlet_names   = "const std::array<std::string," & $num_outputs & "> outlet_names = { "
+        define_obj_name        = "#define OBJ_NAME \"" & $omni_max_object_name_tilde_symbol & "\""
+        define_num_ins         = "#define NUM_INS " & $num_inputs
+        define_num_params      = "#define NUM_PARAMS " & $num_params
+        define_num_buffers     = "#define NUM_BUFFERS " & $num_buffers
+        define_num_outs        = "#define NUM_OUTS " & $num_outputs
+        const_inputs_names     = "const std::array<std::string,NUM_INS> inputs_names = { "
+        const_inputs_defaults  = "const std::array<double,NUM_INS> inputs_defaults = { " 
+        const_params_names     = "const std::array<std::string,NUM_PARAMS> params_names = { "
+        const_params_defaults  = "const std::array<double,NUM_PARAMS> params_defaults = { " 
+        const_buffers_names    = "const std::array<std::string,NUM_BUFFERS> buffers_names = { "
+        const_buffers_defaults = "const std::array<std::string,NUM_BUFFERS> buffers_defaults = { "
+        const_outputs_names    = "const std::array<std::string,NUM_OUTS> outputs_names = { "
 
     if num_inputs == 0:
-        const_inlet_names.add("};")
+        const_inputs_names.add("};")
         const_inputs_defaults.add("};")
     else:
         for index, input_name in inputs_names:
             let default_val = inputs_defaults[index]
             if index == num_inputs - 1:
-                const_inlet_names.add("\"" & $input_name & "\" };")
+                const_inputs_names.add("\"" & $input_name & "\" };")
                 const_inputs_defaults.add($default_val & " };")
             else:
-                const_inlet_names.add("\"" & $input_name & "\", ")
+                const_inputs_names.add("\"" & $input_name & "\", ")
                 const_inputs_defaults.add($default_val & ", ")
 
+    if num_params == 0:
+        const_params_names.add("};")
+        const_params_defaults.add("};")
+    else:
+        for index, param_name in params_names:
+            let default_val = params_defaults[index]
+            if index == num_params - 1:
+                const_params_names.add("\"" & $param_name & "\" };")
+                const_params_defaults.add($default_val & " };")
+            else:
+                const_params_names.add("\"" & $param_name & "\", ")
+                const_params_defaults.add($default_val & ", ")
+
+    if num_buffers == 0:
+        const_buffers_names.add("};")
+        const_buffers_defaults.add("};")
+    else:
+        for index, buffer_name in buffers_names:
+            let default_val = buffers_defaults[index]
+            if index == num_buffers - 1:
+                const_buffers_names.add("\"" & $buffer_name & "\" };")
+                const_buffers_defaults.add("\"" & $default_val & "\" };")
+            else:
+                const_buffers_names.add("\"" & $buffer_name & "\", ")
+                const_buffers_defaults.add("\"" & $default_val & "\", ")
+
     if num_outputs == 0:
-        const_outlet_names.add("};")
+        const_outputs_names.add("};")
     else:
         for index, output_name in outputs_names:
             if index == num_outputs - 1:
-                const_outlet_names.add("\"" & $output_name & "\" };")
+                const_outputs_names.add("\"" & $output_name & "\" };")
             else:
-                const_outlet_names.add("\"" & $output_name & "\", ")
+                const_outputs_names.add("\"" & $output_name & "\", ")
 
     #This is the cpp file to overwrite! Need it at every iteration
     include "omnimaxpkg/Static/Omni_PROTO.cpp.nim"
     
     #Reconstruct the cpp file
-    OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & const_inputs_defaults & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
+    OMNI_PROTO_CPP = (
+        $OMNI_PROTO_INCLUDES & 
+        $define_obj_name & "\n" & 
+        $define_num_ins & "\n" & 
+        $define_num_params & "\n" & 
+        $define_num_buffers & "\n" & 
+        $define_num_outs & "\n" & 
+        $const_inputs_names & "\n" & 
+        $const_inputs_defaults & "\n" & 
+        $const_params_names & "\n" & 
+        $const_params_defaults & "\n" & 
+        $const_buffers_names & "\n" & 
+        $const_buffers_defaults & "\n" & 
+        $const_outputs_names & "\n" & 
+        $OMNI_PROTO_CPP
+    )
+
+    echo OMNI_PROTO_CPP
+    return 1
     
     # =========== #
     # WRITE FILES #
