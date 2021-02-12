@@ -23,22 +23,15 @@
 import omni_lang/core/wrapper/omni_wrapper
 
 #[ All these functions are defined in the Max object cpp file ]#
-
-#Retrieve buffer_ref*
 proc get_buffer_ref_Max(max_object : pointer, buffer_name : cstring) : pointer {.importc, cdecl.}
-
-#Retrive buffer_obj*
 proc get_buffer_obj_Max(buffer_ref : pointer) : pointer {.importc, cdecl.}
-
-#Lock / Unlock
 proc lock_buffer_Max(buffer_obj : pointer)   : ptr float32 {.importc, cdecl.}
 proc unlock_buffer_Max(buffer_obj : pointer) : void        {.importc, cdecl.}
-
-#Utilities
 proc get_frames_buffer_Max(buffer_obj : pointer)     : clong   {.importc, cdecl.}
 proc get_channels_buffer_Max(buffer_obj : pointer)   : clong   {.importc, cdecl.}
 proc get_samplerate_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.}
 
+#Create a new Buffer interface for the omnimax wrapper
 omniBufferInterface:
     debug: false
 
@@ -55,7 +48,7 @@ omniBufferInterface:
         #Get buffer_ref from max
         buffer.buffer_ref = get_buffer_ref_Max(max_object, buffer_name)
 
-    #(buffer : Buffer, val : cstring) -> void
+    #(buffer : Buffer, value : cstring) -> void
     update:
         let buffer_obj = get_buffer_obj_Max(buffer.buffer_ref)
         if buffer.buffer_obj != buffer_obj:

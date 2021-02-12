@@ -281,6 +281,8 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 
 	//Inlets
 	dsp_setup((t_pxobject*)self, NUM_INS);
+  	if(NUM_INS == 0)
+		inlet_new((t_object*)self, NULL); //Create a non-signal input. NUM_INS will be 0, so dsp_setup is still correct
 
 	//Outlets
 	for(int i = 0; i < NUM_OUTS; i++)
