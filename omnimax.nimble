@@ -27,7 +27,7 @@ license       = "MIT"
 
 requires "nim >= 1.4.0"
 requires "cligen >= 1.0.0"
-requires "omni >= 0.3.0"
+requires "omni == 0.3.0"
 
 #Ignore omnimax_lang
 skipDirs = @["omnimax_lang"]
@@ -51,18 +51,21 @@ else:
 #Compiler executable
 bin = @["omnimax"]
 
-#If using "nimble install" instead of "nimble installOmniMax", make sure omnimax_lang is still getting installed
+#Make sure omnimax_lang is getting installed first
 before install:
     #getPkgDir() here points to the current omnimax source folder
     let package_dir = getPkgDir()
     
+    #Update max-api submodule
     withDir(package_dir):
+        echo "Updating the max-api repository..."
         exec "git submodule update --init --recursive"
 
+    #Install omnimax_lang
     withDir(getPkgDir() & "/omnimax_lang"):
         exec "nimble install"
 
-#before/after are BOTH needed for any of the two to work
+#before / after are BOTH needed for any of the two to work
 after install:
     #Nothing to do on Windows
     when defined(Windows):
