@@ -51,7 +51,7 @@ omniBufferInterface:
     #(buffer : Buffer, value : cstring) -> void
     update:
         let buffer_obj = get_buffer_obj_Max(buffer.buffer_ref)
-        if buffer.buffer_obj != buffer_obj:
+        if not isNil(buffer_obj):
             buffer.buffer_obj = buffer_obj
             buffer.length = get_frames_buffer_Max(buffer_obj)
             buffer.samplerate = get_samplerate_buffer_Max(buffer_obj)
