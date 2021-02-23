@@ -264,9 +264,6 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         $OMNI_PROTO_CPP
     )
 
-    echo OMNI_PROTO_CPP
-    return 1
-    
     # =========== #
     # WRITE FILES #
     # =========== #
