@@ -1,6 +1,6 @@
 # MIT License
 # 
-# Copyright (c) 2020 Francesco Cameli
+# Copyright (c) 2020-2021 Francesco Cameli
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,14 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-version       = "0.2.3"
+version       = "0.3.0"
 author        = "Francesco Cameli"
 description   = "Max wrapper for omni."
 license       = "MIT"
 
-requires "nim >= 1.0.0"
+requires "nim >= 1.4.0"
 requires "cligen >= 1.0.0"
-requires "omni >= 0.2.3"
+requires "omni == 0.3.0"
 
 #Ignore omnimax_lang
 skipDirs = @["omnimax_lang"]
@@ -51,18 +51,21 @@ else:
 #Compiler executable
 bin = @["omnimax"]
 
-#If using "nimble install" instead of "nimble installOmniMax", make sure omnimax_lang is still getting installed
+#Make sure omnimax_lang is getting installed first
 before install:
     #getPkgDir() here points to the current omnimax source folder
     let package_dir = getPkgDir()
     
+    #Update max-api submodule
     withDir(package_dir):
+        echo "Updating the max-api repository..."
         exec "git submodule update --init --recursive"
 
+    #Install omnimax_lang
     withDir(getPkgDir() & "/omnimax_lang"):
         exec "nimble install"
 
-#before/after are BOTH needed for any of the two to work
+#before / after are BOTH needed for any of the two to work
 after install:
     #Nothing to do on Windows
     when defined(Windows):
@@ -75,8 +78,3 @@ after install:
         exec "ln -s " & $jitter_api_framework_path & "/Versions/A " & $jitter_api_framework_path & "/Versions/Current"
         exec "ln -s " & $jitter_api_framework_path & "/Versions/Current/Resources " & $jitter_api_framework_path & "/Resources"
         exec "ln -s " & $jitter_api_framework_path & "/Versions/Current/JitterAPI " & $jitter_api_framework_path & "/JitterAPI"
-
-#As nimble install, but with -d:release, -d:danger and --opt:speed. Also installs omnimax_lang.
-task installOmniMax, "Install the omnimax_lang package and the omnimax compiler":
-    #Build and install the omnimax compiler executable. This will also trigger the "before install" to install omnimax_lang
-    exec "nimble install --passNim:-d:release --passNim:-d:danger --passNim:--opt:speed"

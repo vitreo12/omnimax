@@ -1,6 +1,6 @@
 # MIT License
 # 
-# Copyright (c) 2020 Francesco Cameli
+# Copyright (c) 2020-2021 Francesco Cameli
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,10 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-#Import omni_lang. This will also make it available in omnimax_buffer for omni.alloc
-import omni_lang
-export omni_lang
-
-#Import SC's Buffer module
+#Import Max's Buffer module
 import omnimax_lang/lib/buffer/omnimax_buffer
 export omnimax_buffer

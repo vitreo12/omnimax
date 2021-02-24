@@ -1,6 +1,6 @@
 # MIT License
 # 
-# Copyright (c) 2020 Francesco Cameli
+# Copyright (c) 2020-2021 Francesco Cameli
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,7 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import cligen, terminal, os, strutils, osproc
+import cligen, terminal, os, strutils
+
+when not defined(Windows):
+    import osproc
 
 #the CMakeLists doesn't need to be re-evaluated at each loop
 include "omnimaxpkg/Static/CMakeLists.txt.nim"
@@ -30,11 +33,17 @@ const
     NimblePkgVersion {.strdefine.} = ""
     omnimax_ver = NimblePkgVersion
 
-#Default to the omni nimble folder, which should have it installed if omni has been installed correctly
+#-v / --version
+let version_flag = "OmniMax - version " & $omnimax_ver & "\n(c) 2020-2021 Francesco Cameli"
+
+#Default to the omni nimble folder, which should have it installed if omnimax has been installed correctly
 const default_max_api_path = "~/.nimble/pkgs/omnimax-" & omnimax_ver & "/omnimaxpkg/deps/max-api"
 
 #Extension for static lib
-const static_lib_extension = ".a"
+when defined(Windows):
+    const static_lib_extension = ".lib"
+else:
+    const static_lib_extension = ".a"
 
 when defined(Windows):
     const max_object_extension = ".mxe64"
@@ -57,7 +66,6 @@ proc printDone(msg : string) : void =
     writeStyled(msg & "\n")
 
 proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
-
     var 
         omniFile     = splitFile(fileFullPath)
         omniFileDir  = omniFile.dir
@@ -121,13 +129,13 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     # ================ #
 
     #Compile nim file. Only pass the -d:writeIO and -d:tempDir flag here, so it generates the IO.txt file.
-    let omni_command = "omni \"" & $fileFullPath & "\" -a:" & $architecture & " -i:omnimax_lang -b:64 -l:static -d:multithreadBuffers -d:writeIO -d:tempDir:\"" & $fullPathToNewFolder & "\" -o:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path... go figure!
-    when not defined(Windows):
-        let failedOmniCompilation = execCmd(omni_command)
-    else:
+    when defined(Windows):
         let failedOmniCompilation = execShellCmd(omni_command)
+    else:
+        let failedOmniCompilation = execCmd(omni_command)
 
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedOmniCompilation > 0:
@@ -140,91 +148,122 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     # ================ #
     
     let 
-        fullPathToIOFile = fullPathToNewFolder & "/IO.txt"
+        fullPathToIOFile = fullPathToNewFolder & "/omni_io.txt"
         io_file = readFile(fullPathToIOFile)
         io_file_seq = io_file.split('\n')
 
-    if io_file_seq.len != 5:
-        printError("Invalid IO.txt file.")
+    if io_file_seq.len != 11:
+        printError("Invalid omni_io.txt file.")
         removeDir(fullPathToNewFolder)
         return 1
     
     let 
-        num_inputs  = parseInt(io_file_seq[0])
-        input_names_string = io_file_seq[1]
-        input_names = input_names_string.split(',') #this is a seq now
-        default_vals_string = io_file_seq[2]
-        default_vals = default_vals_string.split(',')
-        num_outputs = parseInt(io_file_seq[3])
-        output_names_string = io_file_seq[4]
-        output_names = output_names_string.split(',') #this is a seq now
+        num_inputs = parseInt(io_file_seq[0])     
+        inputs_names_string = io_file_seq[1]
+        inputs_names = inputs_names_string.split(',')
+        inputs_defaults_string = io_file_seq[2]
+        inputs_defaults = inputs_defaults_string.split(',')
+        num_params = parseInt(io_file_seq[3])
+        params_names_string = io_file_seq[4]
+        params_names = params_names_string.split(',')
+        params_defaults_string = io_file_seq[5]
+        params_defaults = params_defaults_string.split(',')
+        num_buffers = parseInt(io_file_seq[6])
+        buffers_names_string = io_file_seq[7]
+        buffers_names = buffers_names_string.split(',')
+        buffers_defaults_string = io_file_seq[8]
+        buffers_defaults = buffers_defaults_string.split(',')
+        num_outputs = parseInt(io_file_seq[9])
+        outputs_names_string = io_file_seq[10]
+        outputs_names = outputs_names_string.split(',')
 
     # ======= #
     # SET I/O #
     # ======= #
 
     var 
-        define_obj_name    = "#define OBJ_NAME \"" & $omni_max_object_name_tilde_symbol & "\""
-        define_num_ins     = "#define NUM_INS " & $num_inputs
-        const_inlet_names  = "const std::array<std::string," & $num_inputs & "> inlet_names = { "
-        const_default_vals = "const std::array<double, " & $num_inputs & "> default_vals = { " 
-        define_num_outs    = "#define NUM_OUTS " & $num_outputs
-        const_outlet_names = "const std::array<std::string," & $num_outputs & "> outlet_names = { "
+        define_obj_name        = "#define OBJ_NAME \"" & $omni_max_object_name_tilde_symbol & "\""
+        define_num_ins         = "#define NUM_INS " & $num_inputs
+        define_num_params      = "#define NUM_PARAMS " & $num_params
+        define_num_buffers     = "#define NUM_BUFFERS " & $num_buffers
+        define_num_outs        = "#define NUM_OUTS " & $num_outputs
+        const_inputs_names     = "const std::array<std::string,NUM_INS> inputs_names = { "
+        const_inputs_defaults  = "const std::array<double,NUM_INS> inputs_defaults = { " 
+        const_params_names     = "const std::array<std::string,NUM_PARAMS> params_names = { "
+        const_params_defaults  = "const std::array<double,NUM_PARAMS> params_defaults = { " 
+        const_buffers_names    = "const std::array<std::string,NUM_BUFFERS> buffers_names = { "
+        const_buffers_defaults = "const std::array<std::string,NUM_BUFFERS> buffers_defaults = { "
+        const_outputs_names    = "const std::array<std::string,NUM_OUTS> outputs_names = { "
 
-    #No input names
-    if input_names[0] == "__NO_PARAM_NAMES__":
-        if num_inputs == 0:
-            const_inlet_names.add("};")
-            const_default_vals.add("};")
-        else:
-            for i in 1..num_inputs:
-                let default_val = default_vals[(i - 1)]
-                if i == num_inputs:
-                    const_inlet_names.add("\"in" & $i & "\" };")
-                    const_default_vals.add($default_val & " };")
-                else:
-                    const_inlet_names.add("\"in" & $i & "\", ")
-                    const_default_vals.add($default_val & ", ")
+    if num_inputs == 0:
+        const_inputs_names.add("};")
+        const_inputs_defaults.add("};")
     else:
-        if num_inputs == 0:
-            const_inlet_names.add("};")
-            const_default_vals.add("};")
-        else:
-            for index, input_name in input_names:
-                let default_val = default_vals[index]
-                if index == num_inputs - 1:
-                    const_inlet_names.add("\"" & $input_name & "\" };")
-                    const_default_vals.add($default_val & " };")
-                else:
-                    const_inlet_names.add("\"" & $input_name & "\", ")
-                    const_default_vals.add($default_val & ", ")
+        for index, input_name in inputs_names:
+            let default_val = inputs_defaults[index]
+            if index == num_inputs - 1:
+                const_inputs_names.add("\"" & $input_name & "\" };")
+                const_inputs_defaults.add($default_val & " };")
+            else:
+                const_inputs_names.add("\"" & $input_name & "\", ")
+                const_inputs_defaults.add($default_val & ", ")
 
-    #No output names
-    if output_names[0] == "__NO_PARAM_NAMES__":
-        if num_outputs == 0:
-            const_outlet_names.add("};")
-        else:
-            for i in 1..num_outputs:
-                if i == num_outputs:
-                    const_outlet_names.add("\"out" & $i & "\" };")
-                else:
-                    const_outlet_names.add("\"out" & $i & "\", ")
+    if num_params == 0:
+        const_params_names.add("};")
+        const_params_defaults.add("};")
     else:
-        if num_outputs == 0:
-            const_outlet_names.add("};")
-        else:
-            for index, output_name in output_names:
-                if index == num_outputs - 1:
-                    const_outlet_names.add("\"" & $output_name & "\" };")
-                else:
-                    const_outlet_names.add("\"" & $output_name & "\", ")
+        for index, param_name in params_names:
+            let default_val = params_defaults[index]
+            if index == num_params - 1:
+                const_params_names.add("\"" & $param_name & "\" };")
+                const_params_defaults.add($default_val & " };")
+            else:
+                const_params_names.add("\"" & $param_name & "\", ")
+                const_params_defaults.add($default_val & ", ")
+
+    if num_buffers == 0:
+        const_buffers_names.add("};")
+        const_buffers_defaults.add("};")
+    else:
+        for index, buffer_name in buffers_names:
+            let default_val = buffers_defaults[index]
+            if index == num_buffers - 1:
+                const_buffers_names.add("\"" & $buffer_name & "\" };")
+                const_buffers_defaults.add("\"" & $default_val & "\" };")
+            else:
+                const_buffers_names.add("\"" & $buffer_name & "\", ")
+                const_buffers_defaults.add("\"" & $default_val & "\", ")
+
+    if num_outputs == 0:
+        const_outputs_names.add("};")
+    else:
+        for index, output_name in outputs_names:
+            if index == num_outputs - 1:
+                const_outputs_names.add("\"" & $output_name & "\" };")
+            else:
+                const_outputs_names.add("\"" & $output_name & "\", ")
 
     #This is the cpp file to overwrite! Need it at every iteration
     include "omnimaxpkg/Static/Omni_PROTO.cpp.nim"
     
     #Reconstruct the cpp file
-    OMNI_PROTO_CPP = $OMNI_PROTO_INCLUDES & $define_obj_name & "\n" & $define_num_ins & "\n" & $define_num_outs & "\n" & $const_inlet_names & "\n" & const_default_vals & "\n" & $const_outlet_names & "\n" & $OMNI_PROTO_CPP
-    
+    OMNI_PROTO_CPP = (
+        $OMNI_PROTO_INCLUDES & 
+        $define_obj_name & "\n" & 
+        $define_num_ins & "\n" & 
+        $define_num_params & "\n" & 
+        $define_num_buffers & "\n" & 
+        $define_num_outs & "\n" & 
+        $const_inputs_names & "\n" & 
+        $const_inputs_defaults & "\n" & 
+        $const_params_names & "\n" & 
+        $const_params_defaults & "\n" & 
+        $const_buffers_names & "\n" & 
+        $const_buffers_defaults & "\n" & 
+        $const_outputs_names & "\n" & 
+        $OMNI_PROTO_CPP
+    )
+
     # =========== #
     # WRITE FILES #
     # =========== #
@@ -249,23 +288,22 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
 
     var cmake_cmd : string
 
-    when(not(defined(Windows))):
-        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
-    else:
+    when defined(Windows):
         #Cmake wants a path in unix style, not windows! Replace "/" with "\"
         let fullPathToNewFolder_Unix = fullPathToNewFolder.replace("\\", "/")
         let fullPathToMaxApi_Unix = expanded_max_path.replace("\\", "/")
-        
         cmake_cmd = "cmake -G \"MinGW Makefiles\" -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $fullPathToMaxApi_Unix & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
+    else:
+        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
 
     #cd into the build directory
     setCurrentDir(fullPathToNewFolder & "/build")
     
     #Execute CMake
-    when not defined(Windows):
-        let failedCmake = execCmd(cmake_cmd)
-    else:
+    when defined(Windows):
         let failedCmake = execShellCmd(cmake_cmd)
+    else:
+        let failedCmake = execCmd(cmake_cmd)
 
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedCmake > 0:
@@ -274,16 +312,16 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         return 1
     
     #make command
-    when not(defined(Windows)):
-        let 
-            compilation_cmd = "make"
-            #compilation_cmd = "cmake --build . --config Release"
-            failedCompilation = execCmd(compilation_cmd)
-    else:
+    when defined(Windows):
         let 
             compilation_cmd  = "mingw32-make"
             #compilation_cmd = "cmake --build . --config Release"
             failedCompilation = execShellCmd(compilation_cmd)
+    else:
+        let 
+            compilation_cmd = "make"
+            #compilation_cmd = "cmake --build . --config Release"
+            failedCompilation = execCmd(compilation_cmd)
 
     if failedCompilation > 0:
         printError("Unsuccessful compilation the object file \"" & $omni_max_object_name_tilde & ".cpp\".")
@@ -385,6 +423,11 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
     return 0
 
 proc omnimax(files : seq[string], mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
+    #no files provided, print --version
+    if files.len == 0:
+        echo version_flag
+        return 0
+
     for omniFile in files:
         #Get full extended path
         let omniFileFullPath = omniFile.normalizedPath().expandTilde().absolutePath()
@@ -409,16 +452,11 @@ proc omnimax(files : seq[string], mc : bool = true, architecture : string = "nat
         else:
             printError($omniFileFullPath & " does not exist.")
             return 1
-    
-    #no files provided
-    if files.len == 0:
-        printError("No Omni files to compile provided.")
-        return 1
 
     return 0
 
 #Workaround to pass custom version
-clCfg.version = "OmniMax - version " & $omnimax_ver & "\n(c) 2020 Francesco Cameli "
+clCfg.version = version_flag
 
 #Dispatch the omnimax function as the CLI one
 dispatch(omnimax, 

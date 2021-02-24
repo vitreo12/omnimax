@@ -46,7 +46,7 @@ To install `omnimax`, simply use the `nimble` package manager (it comes bundled 
 
 ## **Usage**
 
-    omnimax ~/.nimble/pkgs/omni-0.2.3/examples/OmniSaw.omni                                                  
+    omnimax ~/.nimble/pkgs/omni-0.3.0/examples/OmniSaw.omni
 
 ## **Website / Docs**
 
