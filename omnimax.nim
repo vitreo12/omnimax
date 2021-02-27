@@ -65,7 +65,7 @@ proc printDone(msg : string) : void =
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
-proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
+proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : string = "", architecture : string = "native", mc : bool = true, removeBuildFiles : bool = true) : int =
     var 
         omniFile     = splitFile(fileFullPath)
         omniFileDir  = omniFile.dir
@@ -83,14 +83,28 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
         printError($fileFullPath & " is not an omni file.")
         return 1
 
-    let expanded_max_path = maxPath.normalizedPath().expandTilde().absolutePath()
+    var expanded_max_path : string
+    
+    if maxPath == "":
+        expanded_max_path = default_max_api_path
+    else:
+        expanded_max_path = maxPath
+
+    expanded_max_path = expanded_max_path.normalizedPath().expandTilde().absolutePath()
 
     #Check maxPath
     if not expanded_max_path.dirExists():
         printError("maxPath: " & $expanded_max_path & " does not exist.")
         return 1
     
-    let expanded_out_dir = outDir.normalizedPath().expandTilde().absolutePath()
+    var expanded_out_dir : string
+
+    if expanded_out_dir == "":
+        expanded_out_dir = default_packages_path
+    else:
+        expanded_out_dir = outDir
+
+    expanded_out_dir = expanded_out_dir.normalizedPath().expandTilde().absolutePath()
 
     #Check outDir
     if not expanded_out_dir.dirExists():
@@ -422,7 +436,7 @@ proc omnimax_single_file(fileFullPath : string, mc : bool = true, architecture :
 
     return 0
 
-proc omnimax(files : seq[string], mc : bool = true, architecture : string = "native", outDir : string = default_packages_path, maxPath : string = default_max_api_path, removeBuildFiles : bool = true) : int =
+proc omnimax(files : seq[string], outDir : string = "", maxPath : string = "", architecture : string = "native", mc : bool = true, removeBuildFiles : bool = true) : int =
     #no files provided, print --version
     if files.len == 0:
         echo version_flag
@@ -434,7 +448,7 @@ proc omnimax(files : seq[string], mc : bool = true, architecture : string = "nat
 
         #If it's a file, compile it
         if omniFileFullPath.fileExists():
-            if omnimax_single_file(omniFileFullPath, mc, architecture, outDir, maxPath, removeBuildFiles) > 0:
+            if omnimax_single_file(omniFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
                 return 1
 
         #If it's a dir, compile all .omni/.oi files in it
@@ -446,7 +460,7 @@ proc omnimax(files : seq[string], mc : bool = true, architecture : string = "nat
                         dirFileExt = dirFileFullPath.splitFile().ext
                     
                     if dirFileExt == ".omni" or dirFileExt == ".oi":
-                        if omnimax_single_file(dirFileFullPath, mc, architecture, outDir, maxPath, removeBuildFiles) > 0:
+                        if omnimax_single_file(dirFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
                             return 1
 
         else:
@@ -459,18 +473,20 @@ proc omnimax(files : seq[string], mc : bool = true, architecture : string = "nat
 clCfg.version = version_flag
 
 #Dispatch the omnimax function as the CLI one
-dispatch(omnimax, 
-    short={
+dispatch(
+    omnimax, 
+    
+    short = {
         "version" : 'v',
         "mc" : 'm',
         "maxPath" : 'p'
     }, 
 
-    help={ 
-        "mc" : "Build with mc support.",
+    help = { 
+        "outDir" : "Output directory. Defaults to the Max 8 Packages' path: \"" & $default_packages_path & "\".",
+        "maxPath" : "Path to the max-api folder. Defaults to the one in OmniMax's dependencies: \"" & $default_max_api_path & ".\"" ,
         "architecture" : "Build architecture.",
-        "outDir" : "Output directory. Defaults to the Max 8 Packages' path.",
-        "maxPath" : "Path to the max-api folder. Defaults to the one in omnimax's dependencies.", 
+        "mc" : "Build with mc support.",
         "removeBuildFiles" : "Remove source files used for compilation from outDir."        
     }
 )
