@@ -472,9 +472,21 @@ proc omnimax(files : seq[string], outDir : string = "", maxPath : string = "", a
 #Workaround to pass custom version
 clCfg.version = version_flag
 
+#Remove --help-syntax
+clCfg.helpSyntax = ""
+
+#Arguments string
+let arguments = "Arguments:\n  Omni file(s) or folder."
+
 #Dispatch the omnimax function as the CLI one
 dispatch(
     omnimax, 
+    
+    #Remove "Usage: ..."
+    noHdr = true,
+    
+    #Custom options printing
+    usage = version_flag & "\n\n" & arguments & "\n\nOptions:\n$options",
     
     short = {
         "version" : 'v',
