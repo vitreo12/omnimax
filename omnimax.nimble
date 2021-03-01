@@ -63,7 +63,7 @@ before install:
 
     #Install omnimax_lang
     withDir(getPkgDir() & "/omnimax_lang"):
-        exec "nimble install"
+        exec "nimble install -Y"
 
 #before / after are BOTH needed for any of the two to work
 after install:
