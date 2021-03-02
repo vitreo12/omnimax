@@ -401,10 +401,10 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
     
     #Or, create a src dir and move them all there
     else:
-        let fullPathToSrcDir = fullPathToNewFolder & "/src"
+        let 
+            fullPathToSrcDir = fullPathToNewFolder & "/src"
+            fullPathToOmniHeaderFile = fullPathToNewFolder & "/omni.h"
         createDir(fullPathToSrcDir)
-
-        let fullPathToOmniHeaderFile = fullPathToNewFolder & "/omni.h"
         moveFile(fullPathToOmniHeaderFile, fullPathToSrcDir & "/omni.h")
         moveFile(fullPathToCppFile, fullPathToSrcDir & "/" & $omni_max_object_name_tilde & ".cpp")
         moveFile(fullPathToOmniFile, fullPathToSrcDir & "/" & $omniFileName & $omniFileExt)
