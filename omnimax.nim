@@ -478,6 +478,9 @@ clCfg.helpSyntax = ""
 #Arguments string
 let arguments = "Arguments:\n  Omni file(s) or folder."
 
+#Ignore clValType
+clCfg.hTabCols = @[ clOptKeys, #[clValType,]# clDflVal, clDescrip ]
+
 #Dispatch the omnimax function as the CLI one
 dispatch(
     omnimax, 
@@ -495,6 +498,8 @@ dispatch(
     }, 
 
     help = { 
+        "help" : "CLIGEN-NOHELP",
+        "version" : "CLIGEN-NOHELP",
         "outDir" : "Output directory. Defaults to the Max 8 Packages' path: \"" & $default_packages_path & "\".",
         "maxPath" : "Path to the max-api folder. Defaults to the one in OmniMax's dependencies: \"" & $default_max_api_path & ".\"" ,
         "architecture" : "Build architecture.",
