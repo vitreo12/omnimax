@@ -182,7 +182,6 @@ void ext_main(void *r)
 	//Init all function pointers
 	Omni_InitGlobal(
 		(omni_alloc_func_t*)malloc, 
-		(omni_realloc_func_t*)realloc, 
 		(omni_free_func_t*)free, 
 		(omni_print_func_t*)max_print
 	);
