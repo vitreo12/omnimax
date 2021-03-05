@@ -401,10 +401,10 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
     
     #Or, create a src dir and move them all there
     else:
-        let fullPathToSrcDir = fullPathToNewFolder & "/src"
+        let 
+            fullPathToSrcDir = fullPathToNewFolder & "/src"
+            fullPathToOmniHeaderFile = fullPathToNewFolder & "/omni.h"
         createDir(fullPathToSrcDir)
-
-        let fullPathToOmniHeaderFile = fullPathToNewFolder & "/omni.h"
         moveFile(fullPathToOmniHeaderFile, fullPathToSrcDir & "/omni.h")
         moveFile(fullPathToCppFile, fullPathToSrcDir & "/" & $omni_max_object_name_tilde & ".cpp")
         moveFile(fullPathToOmniFile, fullPathToSrcDir & "/" & $omniFileName & $omniFileExt)
@@ -478,6 +478,9 @@ clCfg.helpSyntax = ""
 #Arguments string
 let arguments = "Arguments:\n  Omni file(s) or folder."
 
+#Ignore clValType
+clCfg.hTabCols = @[ clOptKeys, #[clValType,]# clDflVal, clDescrip ]
+
 #Dispatch the omnimax function as the CLI one
 dispatch(
     omnimax, 
@@ -495,6 +498,8 @@ dispatch(
     }, 
 
     help = { 
+        "help" : "CLIGEN-NOHELP",
+        "version" : "CLIGEN-NOHELP",
         "outDir" : "Output directory. Defaults to the Max 8 Packages' path: \"" & $default_packages_path & "\".",
         "maxPath" : "Path to the max-api folder. Defaults to the one in OmniMax's dependencies: \"" & $default_max_api_path & ".\"" ,
         "architecture" : "Build architecture.",

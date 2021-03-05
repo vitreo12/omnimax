@@ -47,19 +47,9 @@ long   max_bufsize    = 0;
 /*********/
 /* print */
 /*********/
-void max_print_str(const char* format_string)
+void max_print(const char* format_string, ...)
 {
-	post("%s", format_string);
-}
-
-void max_print_float(float value) 
-{
-	post("%f", value);
-}
-
-void max_print_int(int value)
-{
-	post("%d", value);
+	post(format_string);
 }
 
 /**************/
@@ -192,11 +182,8 @@ void ext_main(void *r)
 	//Init all function pointers
 	Omni_InitGlobal(
 		(omni_alloc_func_t*)malloc, 
-		(omni_realloc_func_t*)realloc, 
 		(omni_free_func_t*)free, 
-		(omni_print_str_func_t*)max_print_str,
-		(omni_print_float_func_t*)max_print_float,  
-		(omni_print_int_func_t*)max_print_int
+		(omni_print_func_t*)max_print
 	);
 	
 	class_dspinit(this_class);
