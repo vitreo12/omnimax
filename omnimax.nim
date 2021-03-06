@@ -53,15 +53,15 @@ else:
 #It's the same in MacOS and Windows
 const default_packages_path = "~/Documents/Max 8/Packages"
 
-proc printError(msg : string) : void =
+template printError(msg : string) : untyped =
     setForegroundColor(fgRed)
-    writeStyled("ERROR [omnimax]: ", {styleBright}) 
+    writeStyled("ERROR : ", {styleBright}) 
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
-proc printDone(msg : string) : void =
+template printDone(msg : string) : untyped =
     setForegroundColor(fgGreen)
-    writeStyled("DONE [omnimax]: ", {styleBright}) 
+    writeStyled("\nSUCCESS : ", {styleBright}) 
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
@@ -71,8 +71,6 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
         omniFileDir  = omniFile.dir
         omniFileName = omniFile.name
         omniFileExt  = omniFile.ext
-
-    let originalOmniFileName = omniFileName
 
     #Check file first charcter, must be a capital letter
     if not omniFileName[0].isUpperAscii:
@@ -143,7 +141,7 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
     # ================ #
 
     #Compile nim file. 
-    let omni_command = "omni \"" & $fileFullPath & "\" --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" --silent --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path...
     when defined(Windows):
@@ -153,7 +151,6 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
 
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedOmniCompilation > 0:
-        printError("Unsuccessful compilation of " & $originalOmniFileName & $omniFileExt & ".")
         removeDir(fullPathToNewFolder)
         return 1
     
@@ -432,7 +429,7 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
         #Remove temp folder used for compilation
         removeDir(fullPathToNewFolder)
 
-    printDone("The " & $omni_max_object_name_tilde_symbol & " object has been correctly built and installed in \"" & $expanded_out_dir & "\".")
+    printDone("The '" & $omni_max_object_name_tilde_symbol & "' object has been correctly built and installed in \"" & $expanded_out_dir & "\".")
 
     return 0
 
