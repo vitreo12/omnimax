@@ -20,9 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+#Import all things needed for a new wrapper
 import omni_lang/core/wrapper/omni_wrapper
 
-#[ All these functions are defined in the Max object cpp file ]#
+#All these functions are defined in the Max object cpp file
 proc get_buffer_ref_Max(max_object : pointer, buffer_name : cstring) : pointer {.importc, cdecl.}
 proc get_buffer_obj_Max(buffer_ref : pointer) : pointer {.importc, cdecl.}
 proc lock_buffer_Max(buffer_obj : pointer)   : ptr float32 {.importc, cdecl.}
