@@ -55,13 +55,13 @@ const default_packages_path = "~/Documents/Max 8/Packages"
 
 template printError(msg : string) : untyped =
     setForegroundColor(fgRed)
-    writeStyled("ERROR : ", {styleBright}) 
+    writeStyled("ERROR: ", {styleBright}) 
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
 template printDone(msg : string) : untyped =
     setForegroundColor(fgGreen)
-    writeStyled("\nSUCCESS : ", {styleBright}) 
+    writeStyled("\nSUCCESS: ", {styleBright}) 
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
