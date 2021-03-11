@@ -141,7 +141,7 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
     # ================ #
 
     #Compile nim file. 
-    let omni_command = "omni \"" & $fileFullPath & "\" --silent --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" --silent:true --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path...
     when defined(Windows):
