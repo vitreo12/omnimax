@@ -34,8 +34,6 @@ proc get_samplerate_buffer_Max(buffer_obj : pointer) : cdouble {.importc, cdecl.
 
 #Create a new Buffer interface for the omnimax wrapper
 omniBufferInterface:
-    debug: false
-
     struct:
         buffer_ref  : pointer                      #pointer to t_buffer_ref
         buffer_obj  : pointer                      #pointer to t_buffer_obj
