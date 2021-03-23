@@ -533,29 +533,34 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 	//get rid of previous object, allocate new one and re-init.
 	if(((max_samplerate != samplerate) || max_bufsize != maxvectorsize) && self->omni_ugen && self->omni_ugen_init)
 	{
-		//Free, then re-alloc
+		//Free, then re-alloc and reset
 		Omni_UGenFree(self->omni_ugen);
 		self->omni_ugen = Omni_UGenAlloc();
+        self->omni_ugen_init = false;
 
 		//Change samplerate and bufsize
 		max_samplerate = samplerate;
 		max_bufsize    = maxvectorsize;
 
-		//Set correct param values again
-		for(int i = 0; i < NUM_PARAMS; i++)
-		{
-			const char* param_name = params_names[i].c_str();
-			double param_val = self->current_param_vals[i];
-			Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
-		}
+        //If valid allocation
+        if(self->omni_ugen)
+        {
+            //Set correct param values again
+            for(int i = 0; i < NUM_PARAMS; i++)
+            {
+                const char* param_name = params_names[i].c_str();
+                double param_val = self->current_param_vals[i];
+                Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
+            }
 
-		//Re-init the ugen
-		self->omni_ugen_init = Omni_UGenInit(
-			self->omni_ugen,  
-			(int)maxvectorsize,
-			samplerate, 
-			(void*)self
-		);
+            //Re-init the ugen
+            self->omni_ugen_init = Omni_UGenInit(
+                self->omni_ugen,  
+                (int)maxvectorsize,
+                samplerate, 
+                (void*)self
+            );
+        }
 	}
 
 	//Standard case, don't re-init object everytime dsp chain is recompiled, but just one time:
@@ -566,7 +571,7 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		max_samplerate = samplerate;
 		max_bufsize    = maxvectorsize;
 		
-		//init ugen
+		//Init ugen
 		self->omni_ugen_init = Omni_UGenInit(
 			self->omni_ugen, 
 			(int)maxvectorsize, 
@@ -584,6 +589,8 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 			Omni_UGenSetBuffer(self->omni_ugen, buffer_name, "");
 		}
 	}
+    else
+        self->omni_ugen = nullptr;
 
 	//Add dsp64 method
 	object_method_direct(void, (t_object*, t_object*, t_perfroutine64, long, void*),
