@@ -49,11 +49,11 @@ include_directories(${OMNI_BUILD_DIR})
 if(NOT MSVC)
 	#Override MSVC release flags (set at the beginning of pretarget)
 	if(WIN32)
-		set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG -march=${BUILD_MARCH}")
-		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=${BUILD_MARCH}")
+		set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG -march=${BUILD_MARCH} -w")
+		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=${BUILD_MARCH} -w")
 	else()
-		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -O3 -DNDEBUG -march=${BUILD_MARCH}")
-		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -march=${BUILD_MARCH}")
+		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -O3 -DNDEBUG -march=${BUILD_MARCH} -w")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -march=${BUILD_MARCH} -w")
 	endif()
 
 	#Build architecture.. I should get rid of this next bit, or remove it from the flags
@@ -81,7 +81,7 @@ include(${C74_MAX_API_DIR}/script/max-posttarget.cmake)
 #MSVC
 if(MSVC)
 	#linker - not working if the omni file has been compiled with nim's MinGW, it need also to be compiled with MSVC (using the --cc:vcc flag)!
-	target_link_libraries(${PROJECT_NAME} PUBLIC "${OMNI_BUILD_DIR}/lib${OMNI_LIB_NAME}.a")
+	target_link_libraries(${PROJECT_NAME} PUBLIC "${OMNI_BUILD_DIR}/${OMNI_LIB_NAME}.lib")
 
 #Clang (MacOS) / MinGW (Windows)
 else()
