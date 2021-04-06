@@ -36,7 +36,7 @@ After `chocolatey` has been installed, open `PowerShell` as administrator and ru
 
 To install `omnimax`, simply use the `nimble` package manager (it comes bundled with the `nim` installation).The command will also take care of installing `omni`:
 
-    nimble install omnimax
+    nimble install omnimax -y
 
 ## **Usage**
 
