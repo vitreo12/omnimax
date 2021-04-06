@@ -303,7 +303,7 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
         #Cmake wants a path in unix style, not windows! Replace "/" with "\"
         let fullPathToNewFolder_Unix = fullPathToNewFolder.replace("\\", "/")
         let fullPathToMaxApi_Unix = expanded_max_path.replace("\\", "/")
-        cmake_cmd = "cmake -G \"MinGW Makefiles\" -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $fullPathToMaxApi_Unix & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
+        cmake_cmd = "cmake -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM:PATH=\"make\" -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $fullPathToMaxApi_Unix & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
     else:
         cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
 
@@ -323,16 +323,11 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
         return 1
     
     #make command
+    let compilation_cmd = "cmake --build . --config Release"
     when defined(Windows):
-        let 
-            compilation_cmd  = "mingw32-make"
-            #compilation_cmd = "cmake --build . --config Release"
-            failedCompilation = execShellCmd(compilation_cmd)
+        let failedCompilation = execShellCmd(compilation_cmd)
     else:
-        let 
-            compilation_cmd = "make"
-            #compilation_cmd = "cmake --build . --config Release"
-            failedCompilation = execCmd(compilation_cmd)
+        let failedCompilation = execCmd(compilation_cmd)
 
     if failedCompilation > 0:
         printError("Unsuccessful compilation the object file \"" & $omni_max_object_name_tilde & ".cpp\".")

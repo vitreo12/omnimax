@@ -12,9 +12,6 @@ Compile [omni](https://github.com/vitreo12/omni) code into [Max](https://cycling
 ### **MacOS**
 
 To install dependencies on MacOS it is suggested to use a package manager like [brew](https://brew.sh/). 
-To install `brew`, simply open the `Terminal` app and run this command :
-    
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 
 After `brew` has been installed, run the following command in the `Terminal` app to install `nim` and `cmake`:
 
@@ -29,14 +26,11 @@ If using bash (the default shell in MacOS), simply edit (or create if it doesn't
 
 On Windows, the [MinGW](http://mingw.org/)'s `gcc` compiler needs also to be installed.
 
-To install dependencies on Windows it is suggested to use a package manager like [scoop](https://scoop.sh/). 
-To install `scoop`, simply open `PowerShell` and run this command :
-    
-    iwr -useb get.scoop.sh | iex
+To install dependencies on Windows it is suggested to use a package manager like [chocolatey](https://community.chocolatey.org/).
 
-After `scoop` has been installed, run the following command in `PowerShell` to install `nim`, `git`, `cmake` and `gcc`:
+After `chocolatey` has been installed, open `PowerShell` as administrator and run this command to install `nim`, `git`, `cmake`, `make` and `mingw`:
 
-    scoop install nim git cmake gcc
+    choco install nim git cmake make mingw -y
 
 ## **Installation**
 
