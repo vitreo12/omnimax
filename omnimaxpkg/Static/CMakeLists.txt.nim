@@ -36,6 +36,9 @@ endif ()
 #Pre-target
 include(${C74_MAX_API_DIR}/script/max-pretarget.cmake)
 
+#Define project name
+project (${PROJECT_NAME})
+
 #Set output directory
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OMNI_BUILD_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${OMNI_BUILD_DIR})

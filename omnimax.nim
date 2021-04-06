@@ -323,14 +323,11 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
         return 1
     
     #make command
+    let compilation_cmd = "cmake --build . --config Release"
     when defined(Windows):
-        let 
-            compilation_cmd = "cmake --build . --config Release"
-            failedCompilation = execShellCmd(compilation_cmd)
+        let failedCompilation = execShellCmd(compilation_cmd)
     else:
-        let 
-            compilation_cmd = "cmake --build . --config Release"
-            failedCompilation = execCmd(compilation_cmd)
+        let failedCompilation = execCmd(compilation_cmd)
 
     if failedCompilation > 0:
         printError("Unsuccessful compilation the object file \"" & $omni_max_object_name_tilde & ".cpp\".")
