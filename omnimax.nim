@@ -65,7 +65,7 @@ template printDone(msg : string) : untyped =
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
-proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : string = "", architecture : string = "native", mc : bool = true, removeBuildFiles : bool = true) : int =
+proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir : string = "", maxPath : string = "", architecture : string = "native", mc : bool = true, removeBuildFiles : bool = true) : int =
     var 
         omniFile     = splitFile(fileFullPath)
         omniFileDir  = omniFile.dir
@@ -157,6 +157,8 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedOmniCompilation > 0:
         removeDir(fullPathToNewFolder)
+        if is_multi:
+            printError("Failed compilation of '" & omniFileName & omniFileExt & "'.")
         return 1
     
     # ================ #
@@ -443,11 +445,14 @@ proc omnimax(files : seq[string], outDir : string = "", maxPath : string = "", a
         #Get full extended path
         let omniFileFullPath = omniFile.normalizedPath().expandTilde().absolutePath()
 
-        #If it's a file, compile it
+        #If it's a file or list of files, compile it / them
         if omniFileFullPath.fileExists():
-            if omnimax_single_file(omniFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
-                return 1
-
+            if files.len == 1:
+                return omnimax_single_file(false, omniFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles)
+            else:
+                if omnimax_single_file(true, omniFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
+                    return 1
+            
         #If it's a dir, compile all .omni/.oi files in it
         elif omniFileFullPath.dirExists():
             for kind, dirFile in walkDir(omniFileFullPath):
@@ -457,7 +462,7 @@ proc omnimax(files : seq[string], outDir : string = "", maxPath : string = "", a
                         dirFileExt = dirFileFullPath.splitFile().ext
                     
                     if dirFileExt == ".omni" or dirFileExt == ".oi":
-                        if omnimax_single_file(dirFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
+                        if omnimax_single_file(true, dirFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
                             return 1
 
         else:
