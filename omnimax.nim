@@ -65,7 +65,7 @@ template printDone(msg : string) : untyped =
     setForegroundColor(fgWhite, true)
     writeStyled(msg & "\n")
 
-proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : string = "", architecture : string = "native", mc : bool = true, removeBuildFiles : bool = true) : int =
+proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir : string = "", maxPath : string = "", architecture : string = "native", mc : bool = true, removeBuildFiles : bool = true) : int =
     var 
         omniFile     = splitFile(fileFullPath)
         omniFileDir  = omniFile.dir
@@ -108,6 +108,11 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
     if not expanded_out_dir.dirExists():
         printError("outDir: " & $expanded_out_dir & " does not exist.")
         return 1
+
+    #x86_64 and amd64 are aliases for x86-64
+    var real_architecture = architecture
+    if real_architecture == "x86_64" or real_architecture == "amd64":
+        real_architecture = "x86-64"
     
     let 
         omni_max_object_name = omniFileName.toLowerAscii()
@@ -141,7 +146,7 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
     # ================ #
 
     #Compile nim file. 
-    let omni_command = "omni \"" & $fileFullPath & "\" --silent:true --architecture:" & $architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" --silent:true --architecture:" & $real_architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path...
     when defined(Windows):
@@ -152,6 +157,8 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
     #error code from execCmd is usually some 8bit number saying what error arises. I don't care which one for now.
     if failedOmniCompilation > 0:
         removeDir(fullPathToNewFolder)
+        if is_multi:
+            printError("Failed compilation of '" & omniFileName & omniFileExt & "'.")
         return 1
     
     # ================ #
@@ -303,9 +310,9 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
         #Cmake wants a path in unix style, not windows! Replace "/" with "\"
         let fullPathToNewFolder_Unix = fullPathToNewFolder.replace("\\", "/")
         let fullPathToMaxApi_Unix = expanded_max_path.replace("\\", "/")
-        cmake_cmd = "cmake -G \"MinGW Makefiles\" -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $fullPathToMaxApi_Unix & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
+        cmake_cmd = "cmake -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM:PATH=\"make\" -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $fullPathToMaxApi_Unix & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $real_architecture & " .."
     else:
-        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $architecture & " .."
+        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $real_architecture & " .."
 
     #cd into the build directory
     setCurrentDir(fullPathToNewFolder & "/build")
@@ -323,16 +330,11 @@ proc omnimax_single_file(fileFullPath : string, outDir : string = "", maxPath : 
         return 1
     
     #make command
+    let compilation_cmd = "cmake --build . --config Release"
     when defined(Windows):
-        let 
-            compilation_cmd  = "mingw32-make"
-            #compilation_cmd = "cmake --build . --config Release"
-            failedCompilation = execShellCmd(compilation_cmd)
+        let failedCompilation = execShellCmd(compilation_cmd)
     else:
-        let 
-            compilation_cmd = "make"
-            #compilation_cmd = "cmake --build . --config Release"
-            failedCompilation = execCmd(compilation_cmd)
+        let failedCompilation = execCmd(compilation_cmd)
 
     if failedCompilation > 0:
         printError("Unsuccessful compilation the object file \"" & $omni_max_object_name_tilde & ".cpp\".")
@@ -443,11 +445,14 @@ proc omnimax(files : seq[string], outDir : string = "", maxPath : string = "", a
         #Get full extended path
         let omniFileFullPath = omniFile.normalizedPath().expandTilde().absolutePath()
 
-        #If it's a file, compile it
+        #If it's a file or list of files, compile it / them
         if omniFileFullPath.fileExists():
-            if omnimax_single_file(omniFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
-                return 1
-
+            if files.len == 1:
+                return omnimax_single_file(false, omniFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles)
+            else:
+                if omnimax_single_file(true, omniFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
+                    return 1
+            
         #If it's a dir, compile all .omni/.oi files in it
         elif omniFileFullPath.dirExists():
             for kind, dirFile in walkDir(omniFileFullPath):
@@ -457,7 +462,7 @@ proc omnimax(files : seq[string], outDir : string = "", maxPath : string = "", a
                         dirFileExt = dirFileFullPath.splitFile().ext
                     
                     if dirFileExt == ".omni" or dirFileExt == ".oi":
-                        if omnimax_single_file(dirFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
+                        if omnimax_single_file(true, dirFileFullPath, outDir, maxPath, architecture, mc, removeBuildFiles) > 0:
                             return 1
 
         else:

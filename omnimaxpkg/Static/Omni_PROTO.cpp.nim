@@ -225,19 +225,23 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 		self->buffer_refs_syms[i] = buffer_default_sym;
 	}
 
+	//Needed for args parsing
+	int param_counter  = 0;
+	int buffer_counter = 0;
+
+	//Needed for attributes parsing
+	bool was_attr = false;
+
 	//Parse arguments. floats / ints set a param (in order). symbols set a buffer (in order)
 	for(int i = 0; i < argc; i++)
 	{
 		t_atom* arg      = (argv + i);
 		short   arg_type = arg->a_type;
 
-		int param_counter  = 0;
-		int buffer_counter = 0;
-
 		//Set a param
 		if(arg_type == A_LONG || arg_type == A_FLOAT)
 		{	
-			if(param_counter < NUM_PARAMS)
+			if(param_counter < NUM_PARAMS && !was_attr)
 			{
 				double arg_val;
 				
@@ -250,18 +254,90 @@ void *omniobj_new(t_symbol *s, long argc, t_atom *argv)
 				self->current_param_vals[param_counter] = arg_val;
 				param_counter += 1;
 			}
+
+			was_attr = false;
 		}
 
-		//Set a buffer
+		//Set an attribute / buffer
 		else if(arg_type == A_SYM)
 		{
-			if(buffer_counter < NUM_BUFFERS)
+			t_symbol*   arg_val = atom_getsym(arg);
+			const char* arg_val_str = arg_val->s_name;
+
+			//Attribute (It does not work automatically. Don't know why)
+			if(arg_val_str[0] == '@')
 			{
-				t_symbol* arg_val = atom_getsym(arg);
-				buffer_ref_set(self->buffer_refs[buffer_counter], arg_val);
-				//Don't run Omni_UGenSetBuffer, as Omni_UGenInit hasn't run yet
-				self->buffer_refs_syms[buffer_counter] = arg_val;
-				buffer_counter += 1;
+				const char* attr_name = arg_val_str + 1; //Shift pointer by one
+				int i_next = i + 1;
+				bool found = false;
+
+				if(i_next < argc)
+				{
+					t_atom* next_arg      = (argv + i_next);
+					short   next_arg_type = next_arg->a_type;
+
+					//Param
+					if(next_arg_type == A_LONG || next_arg_type == A_FLOAT)
+					{	
+						double next_arg_val;
+				
+						if(next_arg_type == A_LONG)
+							next_arg_val = double(atom_getlong(next_arg));
+						else
+							next_arg_val = atom_getfloat(next_arg);
+						
+						for(int y = 0; y < NUM_PARAMS; y++)
+						{
+							const char* param_name = params_names[y].c_str();
+							if(strcmp(param_name, attr_name) == 0)
+							{
+								Omni_UGenSetParam(self->omni_ugen, params_names[y].c_str(), next_arg_val);
+								self->current_param_vals[y] = next_arg_val;
+								found = true;
+								break;
+							}
+						}
+					}
+
+					//Buffer
+					else
+					{
+						t_symbol*   next_arg_val     = atom_getsym(next_arg);
+						const char* next_arg_val_str = next_arg_val->s_name;	
+						
+						for(int y = 0; y < NUM_BUFFERS; y++)
+						{
+							const char* buffer_name = buffers_names[y].c_str();
+							if(strcmp(buffer_name, attr_name) == 0)
+							{
+								buffer_ref_set(self->buffer_refs[y], next_arg_val);
+								//Don't run Omni_UGenSetBuffer, as Omni_UGenInit hasn't run yet
+								self->buffer_refs_syms[y] = next_arg_val;
+								found = true;
+								break;
+							}
+						}
+					}	
+				}
+				
+				if(!found)
+					post("ERROR: %s: Invalid attr name: '%s'\n", OBJ_NAME, attr_name);
+
+				was_attr = true;
+			}
+			
+			//Normal argument
+			else
+			{
+				if(buffer_counter < NUM_BUFFERS && !was_attr)
+				{
+					buffer_ref_set(self->buffer_refs[buffer_counter], arg_val);
+					//Don't run Omni_UGenSetBuffer, as Omni_UGenInit hasn't run yet
+					self->buffer_refs_syms[buffer_counter] = arg_val;
+					buffer_counter += 1;
+				}
+
+				was_attr = false;
 			}
 		}
 	}
@@ -440,8 +516,8 @@ t_max_err omniobj_notify(t_omniobj *self, t_symbol *s, t_symbol *msg, void *send
 	return MAX_ERR_NONE;
 }
 
-//Set a param:  "set freq 440"
-//Set a buffer: "set buffer bufferName"
+//Set a param:  "freq 440"
+//Set a buffer: "buffer bufferName"
 void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 {
 	//freq 440 OR buffer bufferName
@@ -503,8 +579,8 @@ void omniobj_set_defer(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 	}
 }
 
-//Set a param:  "set freq 440"
-//Set a buffer: "set buffer bufferName"
+//Set a param:  "freq 440"
+//Set a buffer: "buffer bufferName"
 void omniobj_set(t_omniobj* self, t_symbol* s, long argc, t_atom* argv)
 {
 	//if not in scheduler's thread, defer executes immediately (check docs)
@@ -533,29 +609,34 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 	//get rid of previous object, allocate new one and re-init.
 	if(((max_samplerate != samplerate) || max_bufsize != maxvectorsize) && self->omni_ugen && self->omni_ugen_init)
 	{
-		//Free, then re-alloc
+		//Free, then re-alloc and reset
 		Omni_UGenFree(self->omni_ugen);
 		self->omni_ugen = Omni_UGenAlloc();
+        self->omni_ugen_init = false;
 
 		//Change samplerate and bufsize
 		max_samplerate = samplerate;
 		max_bufsize    = maxvectorsize;
 
-		//Set correct param values again
-		for(int i = 0; i < NUM_PARAMS; i++)
-		{
-			const char* param_name = params_names[i].c_str();
-			double param_val = self->current_param_vals[i];
-			Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
-		}
+        //If valid allocation
+        if(self->omni_ugen)
+        {
+            //Set correct param values again
+            for(int i = 0; i < NUM_PARAMS; i++)
+            {
+                const char* param_name = params_names[i].c_str();
+                double param_val = self->current_param_vals[i];
+                Omni_UGenSetParam(self->omni_ugen, param_name, param_val);
+            }
 
-		//Re-init the ugen
-		self->omni_ugen_init = Omni_UGenInit(
-			self->omni_ugen,  
-			(int)maxvectorsize,
-			samplerate, 
-			(void*)self
-		);
+            //Re-init the ugen
+            self->omni_ugen_init = Omni_UGenInit(
+                self->omni_ugen,  
+                (int)maxvectorsize,
+                samplerate, 
+                (void*)self
+            );
+        }
 	}
 
 	//Standard case, don't re-init object everytime dsp chain is recompiled, but just one time:
@@ -566,7 +647,7 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 		max_samplerate = samplerate;
 		max_bufsize    = maxvectorsize;
 		
-		//init ugen
+		//Init ugen
 		self->omni_ugen_init = Omni_UGenInit(
 			self->omni_ugen, 
 			(int)maxvectorsize, 
@@ -584,6 +665,8 @@ void omniobj_dsp64(t_omniobj* self, t_object* dsp64, short *count, double sample
 			Omni_UGenSetBuffer(self->omni_ugen, buffer_name, "");
 		}
 	}
+    else
+        self->omni_ugen = nullptr;
 
 	//Add dsp64 method
 	object_method_direct(void, (t_object*, t_object*, t_perfroutine64, long, void*),
