@@ -75,11 +75,6 @@ if(NOT MSVC)
 	endif()
 endif()
 
-message(STATUS "Flags: ${CMAKE_C_FLAGS}")
-message(STATUS "Flags: ${CMAKE_CXX_FLAGS}")
-message(STATUS "Flags: ${CMAKE_C_FLAGS_RELEASE}")
-message(STATUS "Flags: ${CMAKE_CXX_FLAGS_RELEASE}")
-
 #Actual shared library to compile
 add_library( 
 	${PROJECT_NAME} 
