@@ -42,6 +42,43 @@ To install `omnimax`, simply use the `nimble` package manager (it comes bundled 
 
     omnimax ~/.nimble/pkgs/omni-0.3.0/examples/OmniSaw.omni
 
+## **Max object interface**
+
+1. `ins` and `outs` represent audio inlets / outlets.
+2. `params` and `buffers` can be set via messages and attributes. Consider this example:
+       
+    *MyOmniObject.omni*
+    ```
+    params:
+        freq
+        amp
+
+    buffers:
+        buf1
+        buf2    
+
+    ... implementation ...
+    ```
+
+    These `params` and `buffers` can be initialized on object instantiation. All numeric values will initialize `params`, and all symbol values will initialize `buffers`:
+
+        [ myomniobject~ 440 foo 0.5 bar ]
+
+    In the previous example, `freq == 440` / `amp == 0.5` / `buf1 == foo` / `buf2 == bar`.
+
+    Another option is to use the attribute syntax:
+
+        [ myomniobject~ @freq 440 @amp 0.5 @buf1 foo @buf2 bar ]
+
+    One can also use `name $1` and `set name $1` messages to set the values of `params` and `buffers` at runtime:
+
+        ( set freq 440 ) == ( freq 440 )
+        ( set amp 0.5 )  == ( amp 0.5 )
+        ( set buf1 foo ) == ( buf1 foo )
+        ( set buf2 bar ) == ( buf1 bar )
+
+    Finally, all `params` and `buffers` support the `attrui` object.
+
 ## **Website / Docs**
 
 Check omni's [website](https://vitreo12.github.io/omni).
