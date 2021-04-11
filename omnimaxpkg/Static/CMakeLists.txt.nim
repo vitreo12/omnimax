@@ -52,17 +52,21 @@ include_directories(${OMNI_BUILD_DIR})
 if(NOT MSVC)
 	#Override MSVC release flags (set at the beginning of pretarget)
 	if(WIN32)
-		set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG -march=${BUILD_MARCH} -w")
-		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=${BUILD_MARCH} -w")
+		set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG -w")
+		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -w")
 	else()
-		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -O3 -DNDEBUG -march=${BUILD_MARCH} -w")
-		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -march=${BUILD_MARCH} -w")
+		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -O3 -DNDEBUG -w")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -w")
 	endif()
 
-	#Build architecture.. I should get rid of this next bit, or remove it from the flags
-	message(STATUS "BUILD ARCHITECTURE : ${BUILD_MARCH}")
-	add_definitions(-march=${BUILD_MARCH})
-
+	#Build architecture... if none, don't pass the flag
+    if (NOT BUILD_MARCH STREQUAL "none")
+        message(STATUS "BUILD ARCHITECTURE : ${BUILD_MARCH}")
+        add_definitions(-march=${BUILD_MARCH})
+		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE} -march=${BUILD_MARCH}")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=${BUILD_MARCH}")
+    endif()
+   
 	#If native, also add mtune=native
 	if (BUILD_MARCH STREQUAL "native")
 		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE} -mtune=native")
