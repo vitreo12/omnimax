@@ -59,9 +59,9 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -w")
 	endif()
 
-	#Build architecture... if none, don't pass the flag
+	#Build architecture... if not none, pass the flags through
+    message(STATUS "BUILD ARCHITECTURE : ${BUILD_MARCH}")
     if (NOT BUILD_MARCH STREQUAL "none")
-        message(STATUS "BUILD ARCHITECTURE : ${BUILD_MARCH}")
         add_definitions(-march=${BUILD_MARCH})
 		set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE} -march=${BUILD_MARCH}")
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=${BUILD_MARCH}")

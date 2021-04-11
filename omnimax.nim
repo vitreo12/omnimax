@@ -110,13 +110,9 @@ proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir 
         return 1
 
     #x86_64 and amd64 are aliases for x86-64
-    var 
-        nim_architecture = architecture
-        cpp_architecture = architecture
-    if nim_architecture == "x86_64" or nim_architecture == "amd64":
-        nim_architecture = "x86-64"
-    elif nim_architecture == "none":
-        cpp_architecture = ""
+    var real_architecture = architecture
+    if real_architecture == "x86_64" or real_architecture == "amd64":
+        real_architecture = "x86-64"
     
     let 
         omni_max_object_name = omniFileName.toLowerAscii()
@@ -150,7 +146,7 @@ proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir 
     # ================ #
 
     #Compile nim file. 
-    let omni_command = "omni \"" & $fileFullPath & "\" --silent:true --architecture:" & $nim_architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
+    let omni_command = "omni \"" & $fileFullPath & "\" --silent:true --architecture:" & $real_architecture & " --lib:static --wrapper:omnimax_lang --performBits:64 --exportIO:true --outDir:\"" & $fullPathToNewFolder & "\""
 
     #Windows requires powershell to figure out the .nimble path...
     when defined(Windows):
@@ -314,9 +310,9 @@ proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir 
         #Cmake wants a path in unix style, not windows! Replace "/" with "\"
         let fullPathToNewFolder_Unix = fullPathToNewFolder.replace("\\", "/")
         let fullPathToMaxApi_Unix = expanded_max_path.replace("\\", "/")
-        cmake_cmd = "cmake -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM:PATH=\"make\" -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $fullPathToMaxApi_Unix & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $cpp_architecture & " .."
+        cmake_cmd = "cmake -G \"MinGW Makefiles\" -DCMAKE_MAKE_PROGRAM:PATH=\"make\" -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder_Unix & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $fullPathToMaxApi_Unix & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $real_architecture & " .."
     else:
-        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $cpp_architecture & " .."
+        cmake_cmd = "cmake -DOMNI_BUILD_DIR=\"" & $fullPathToNewFolder & "\" -DOMNI_LIB_NAME=\"" & $omni_file_name & "\" -DC74_MAX_API_DIR=\"" & $expanded_max_path & "\" -DCMAKE_BUILD_TYPE=Release -DBUILD_MARCH=" & $real_architecture & " .."
 
     #cd into the build directory
     setCurrentDir(fullPathToNewFolder & "/build")
