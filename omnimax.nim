@@ -97,7 +97,7 @@ proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir 
     
     var expanded_out_dir : string
 
-    if expanded_out_dir == "":
+    if outDir == "":
         expanded_out_dir = default_packages_path
     else:
         expanded_out_dir = outDir
@@ -411,7 +411,7 @@ proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir 
         moveFile(fullPathToIOFile, fullPathToSrcDir & "/IO.txt")
         moveFile(fullPathToStaticLib, fullPathToSrcDir & "/lib" & $omni_file_name & $static_lib_extension)
 
-    #Copy to extensions folder
+    #Copy to outDir folder
     let 
         fullPathToOutDir_tilde = $expanded_out_dir & "/" & $omni_max_object_name_tilde #omnisaw_tilde
         fullPathToOutDir = $expanded_out_dir & "/" & $omni_file_name #OmniSaw
