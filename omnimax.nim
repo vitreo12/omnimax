@@ -41,9 +41,13 @@ const default_max_api_path = "~/.nimble/pkgs/omnimax-" & omnimax_ver & "/omnimax
 
 #Extension for static lib
 when defined(Windows):
-    const static_lib_extension = ".lib"
+    const 
+        static_lib_extension = ".lib"
+        lib_prepend = ""
 else:
-    const static_lib_extension = ".a"
+    const 
+        static_lib_extension = ".a"
+        lib_prepend = "lib"
 
 when defined(Windows):
     const max_object_extension = ".mxe64"
@@ -130,9 +134,9 @@ proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir 
         #These are the .cpp, .sc and cmake files in new folder
         fullPathToCppFile   = $fullPathToNewFolder & "/" & $omni_max_object_name_tilde & ".cpp"
         fullPathToCMakeFile = $fullPathToNewFolder & "/" & "CMakeLists.txt"
-
-        #These are the paths to the generated static libraries
-        fullPathToStaticLib = $fullPathToNewFolder & "/lib" & $omniFileName & $static_lib_extension
+        
+        #This is the path to the compiled static lib
+        fullPathToStaticLib = $fullPathToNewFolder & "/" & $lib_prepend & $omniFileName & $static_lib_extension
     
     #Create directory in same folder as .omni file
     removeDir(fullPathToNewFolder)
