@@ -170,12 +170,12 @@ proc omnimax_single_file(is_multi : bool = false, fileFullPath : string, outDir 
     # ================ #
     
     let 
-        fullPathToIOFile = fullPathToNewFolder & "/omni_io.txt"
+        fullPathToIOFile = fullPathToNewFolder & "/" & omniFileName & "_io.txt"
         io_file = readFile(fullPathToIOFile)
         io_file_seq = io_file.split('\n')
 
     if io_file_seq.len != 11:
-        printError("Invalid omni_io.txt file.")
+        printError("Invalid io file: " & fullPathToIOFile & ".")
         removeDir(fullPathToNewFolder)
         return 1
     
