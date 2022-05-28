@@ -40,7 +40,7 @@ To install `omnimax`, simply use the `nimble` package manager (it comes bundled 
 
 ## **Usage**
 
-    omnimax ~/.nimble/pkgs/omni-0.4.0/examples/OmniSaw.omni
+    omnimax ~/.nimble/pkgs/omni-0.4.1/examples/OmniSaw.omni
 
 ## **Max object interface**
 
