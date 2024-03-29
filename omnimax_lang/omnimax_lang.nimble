@@ -20,12 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-version       = "0.4.1"
+version       = "0.4.2"
 author        = "Francesco Cameli"
 description   = "omnimax_lang"
 license       = "MIT"
 
 requires "nim >= 1.0.0"
-requires "omni == 0.4.1"
+requires "omni == 0.4.2"
 
 installDirs = @["omnimax_lang"]
